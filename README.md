@@ -2,6 +2,18 @@
 
 > event module
 
+## install
+
+```shell
+npm install @swnb/event
+```
+
+```shell
+yarn add @swnb/event
+```
+
+## example
+
 ```typescript
 
 // define event handler type
