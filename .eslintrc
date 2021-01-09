@@ -1,0 +1,4 @@
+
+{
+  "extends": "./node_modules/@swnb/fabric/dist/eslint"
+}
