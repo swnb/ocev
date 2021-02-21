@@ -37,3 +37,12 @@ s.dispatch('foo', 1, 2)
 s.dispatch('bar', 'd')
 s.dispatch('foo', 5, 0)
 s.dispatch('bar', 'x')
+;(async () => {
+  const a = await s.waitUtil('foo')
+  console.log('wait')
+  console.log(a[0], a[1])
+})()
+
+setTimeout(() => {
+  s.dispatch('foo', 8, 0)
+}, 1000)

@@ -67,6 +67,21 @@ class SyncEvent<M extends Record<string, (...arg: any) => void>> {
     }
     return this
   }
+
+  public waitUtil = <K extends keyof M>(type: K, timeout?: number) => {
+    return new Promise<Arguments<M[K]>>((res, rej) => {
+      const callback = (...args: any) => {
+        res(args)
+      }
+      // @ts-ignore
+      this.once(type, callback)
+      if (timeout) {
+        setTimeout(rej, timeout)
+      }
+    })
+  }
 }
+
+type Arguments<T> = T extends (...args: infer R) => void ? R : never
 
 export { SyncEvent }

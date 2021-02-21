@@ -49,4 +49,17 @@ const callback = () => {}
 s.on('foo' , callback)
 
 s.cancel('foo' , callback)
+
+// async await
+
+;(async () => {
+  const a = await s.waitUtil('foo')
+  console.log('wait')
+  console.log(a[0], a[1]) // 8 0
+})()
+
+setTimeout(() => {
+  s.dispatch('foo', 8, 0)
+}, 1000)
+
 ```
