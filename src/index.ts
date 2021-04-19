@@ -3,7 +3,17 @@ class SyncEvent<M extends Record<string, (...arg: any) => void>> {
 
   private handlerMap = new Map<keyof M, Set<M[keyof M]>>()
 
+  private isDeaf = false
+
   private onceHandlerWrapperMap = new Map<M[keyof M], M[keyof M]>()
+
+  public deaf = () => {
+    this.isDeaf = true
+  }
+
+  public listen = () => {
+    this.isDeaf = false
+  }
 
   public on = <K extends keyof M>(type: K, handler: M[K]) => {
     if (this.handlerMap.has(type)) {
@@ -58,6 +68,9 @@ class SyncEvent<M extends Record<string, (...arg: any) => void>> {
   }
 
   public dispatch = <K extends keyof M>(type: K, ...arg: Parameters<M[K]>) => {
+    // 一段时间内不可以监听事件
+    if (this.isDeaf) return
+
     const handlers = this.handlerMap.get(type)
     if (handlers) {
       handlers.forEach(handler => {
