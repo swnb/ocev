@@ -270,6 +270,11 @@
   dependencies:
     "@umijs/fabric" "^2.4.11"
 
+"@swnb/power-types@^0.1.0":
+  version "0.1.0"
+  resolved "https://registry.npmjs.org/@swnb/power-types/-/power-types-0.1.0.tgz#5fe50faa48942db87b5aff85d8676892d71409c4"
+  integrity sha512-A58UYD7TrhAR+G76xs8YPhduPX9++3tzyIZunFPCcPnfQvvsfCvMMoFZCfqaDJUipIxFkq0RmDqxjN4mgjHKCA==
+
 "@types/glob@^7.1.1":
   version "7.1.3"
   resolved "https://registry.npm.taobao.org/@types/glob/download/@types/glob-7.1.3.tgz#e6ba80f36b7daad2c685acd9266382e68985c183"
