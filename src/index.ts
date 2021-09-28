@@ -1,63 +1,64 @@
 class SyncEvent<M extends Record<string, (...arg: any) => void>> {
+  #handlerMap = new Map<keyof M, Set<M[keyof M]>>()
+
+  #isDeaf = false
+
+  #onceHandlerWrapperMap = new Map<M[keyof M], M[keyof M]>()
+
   protected eventNamespace = ''
 
-  private handlerMap = new Map<keyof M, Set<M[keyof M]>>()
-
-  private isDeaf = false
-
-  private onceHandlerWrapperMap = new Map<M[keyof M], M[keyof M]>()
-
   public deaf = () => {
-    this.isDeaf = true
+    this.#isDeaf = true
   }
 
   public listen = () => {
-    this.isDeaf = false
+    this.#isDeaf = false
   }
 
   public on = <K extends keyof M>(type: K, handler: M[K]) => {
-    if (this.handlerMap.has(type)) {
-      this.handlerMap.get(type)!.add(handler)
+    if (this.#handlerMap.has(type)) {
+      this.#handlerMap.get(type)!.add(handler)
     } else {
       const set = new Set<M[K]>()
       set.add(handler)
-      this.handlerMap.set(type, set)
+      this.#handlerMap.set(type, set)
     }
     return this
   }
 
   public once = <K extends keyof M>(type: K, handler: M[K]) => {
-    const handlerWrapper = (...arg: Parameters<M[K]>) => {
+    const handlerWrapper = (...arg: Arguments<M[K]>) => {
       // @ts-ignore
       this.cancel(type, handlerWrapper)
+      // @ts-ignore
       handler(...arg)
     }
     // @ts-ignore
     this.on(type, handlerWrapper)
     // @ts-ignore
-    this.onceHandlerWrapperMap.set(handler, handlerWrapper)
+    this.#onceHandlerWrapperMap.set(handler, handlerWrapper)
     return this
   }
 
   public autoClear = <K extends keyof M>(type?: K) => {
     if (type) {
-      this.handlerMap.set(type, new Set())
+      this.#handlerMap.set(type, new Set())
     } else {
-      this.handlerMap = new Map()
-      this.onceHandlerWrapperMap = new Map()
+      this.#handlerMap = new Map()
+      this.#onceHandlerWrapperMap = new Map()
     }
     return this
   }
 
   public cancel = <K extends keyof M>(type: K, handler: M[K]) => {
-    const handlers = this.handlerMap.get(type)
+    const handlers = this.#handlerMap.get(type)
     if (handlers) {
       handlers.delete(handler)
     }
 
-    const handlerWrapper = this.onceHandlerWrapperMap.get(handler)
+    const handlerWrapper = this.#onceHandlerWrapperMap.get(handler)
     if (handlerWrapper) {
-      this.onceHandlerWrapperMap.delete(handler)
+      this.#onceHandlerWrapperMap.delete(handler)
       if (handlers) {
         handlers.delete(handlerWrapper)
       }
@@ -69,9 +70,9 @@ class SyncEvent<M extends Record<string, (...arg: any) => void>> {
 
   public dispatch = <K extends keyof M>(type: K, ...arg: Parameters<M[K]>) => {
     // 一段时间内不可以监听事件
-    if (this.isDeaf) return
+    if (this.#isDeaf) return
 
-    const handlers = this.handlerMap.get(type)
+    const handlers = this.#handlerMap.get(type)
     if (handlers) {
       handlers.forEach(handler => {
         // @ts-ignore
