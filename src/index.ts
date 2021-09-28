@@ -3,6 +3,8 @@ class SyncEvent<M extends Record<string, (...arg: any) => void>> {
 
   #isDeaf = false
 
+  #sequenceCallbackPromiseMap = new Map<M[keyof M], Promise<void>>()
+
   #onceHandlerWrapperMap = new Map<M[keyof M], M[keyof M]>()
 
   protected eventNamespace = ''
@@ -75,8 +77,17 @@ class SyncEvent<M extends Record<string, (...arg: any) => void>> {
     const handlers = this.#handlerMap.get(type)
     if (handlers) {
       handlers.forEach(handler => {
-        // @ts-ignore
-        handler(...arg)
+        // if handler is sequence
+        if (this.#sequenceCallbackPromiseMap.has(handler)) {
+          const nextPromise = this.#sequenceCallbackPromiseMap
+            .get(handler)!
+            // @ts-ignore
+            .then(() => handler(...arg))
+          this.#sequenceCallbackPromiseMap.set(handler, nextPromise)
+        } else {
+          // @ts-ignore
+          handler(...arg)
+        }
       })
     }
     return this
@@ -84,15 +95,32 @@ class SyncEvent<M extends Record<string, (...arg: any) => void>> {
 
   public waitUtil = <K extends keyof M>(type: K, timeout?: number) => {
     return new Promise<Arguments<M[K]>>((res, rej) => {
+      let timeID: number | undefined
       const callback = (...args: any) => {
+        if (timeID !== undefined) clearTimeout(timeID)
         res(args)
       }
       // @ts-ignore
       this.once(type, callback)
       if (timeout) {
-        setTimeout(rej, timeout)
+        timeID = setTimeout(rej, timeout) as unknown as number
       }
     })
+  }
+
+  // each callback will exec one by one
+  public sequenceOn = <K extends keyof M>(type: K, handler: M[K]) => {
+    if (this.#handlerMap.has(type)) {
+      this.#handlerMap.get(type)!.add(handler)
+      // add sequence callback
+      this.#sequenceCallbackPromiseMap.set(handler, Promise.resolve())
+    } else {
+      const set = new Set<M[K]>()
+      set.add(handler)
+      this.#sequenceCallbackPromiseMap.set(handler, Promise.resolve())
+      this.#handlerMap.set(type, set)
+    }
+    return this
   }
 }
 

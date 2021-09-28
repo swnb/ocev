@@ -9,6 +9,14 @@ class S extends SyncEvent<HandlerMap> {}
 
 const s = new S()
 
+s.sequenceOn('bar', async () => {
+  console.log('1s')
+  await new Promise(res => {
+    setTimeout(res, 4000)
+  })
+  console.log('emit')
+})
+
 s.on('bar', z => {
   console.log(z)
 })
