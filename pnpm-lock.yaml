@@ -2,9 +2,13 @@ lockfileVersion: 5.3
 
 specifiers:
   '@swnb/fabric': ^0.4.1
+  '@swnb/power-types': ^0.1.0
   eslint: ^7.17.0
   prettier: ^2.2.1
   typescript: ^4.1.3
+
+dependencies:
+  '@swnb/power-types': 0.1.0
 
 devDependencies:
   '@swnb/fabric': 0.4.7_prettier@2.3.2
@@ -1382,6 +1386,10 @@ packages:
       - prettier
       - supports-color
     dev: true
+
+  /@swnb/power-types/0.1.0:
+    resolution: {integrity: sha512-A58UYD7TrhAR+G76xs8YPhduPX9++3tzyIZunFPCcPnfQvvsfCvMMoFZCfqaDJUipIxFkq0RmDqxjN4mgjHKCA==}
+    dev: false
 
   /@types/eslint/7.28.0:
     resolution: {integrity: sha512-07XlgzX0YJUn4iG1ocY4IX9DzKSmMGUs6ESKlxWhZRaa0fatIWaHWUVapcuGa8r5HFnTqzj+4OCjd5f7EZ/i/A==}
