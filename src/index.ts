@@ -1,3 +1,5 @@
+import * as errors from './errors'
+
 class SyncEvent<M extends Record<string, (...arg: any) => void>> {
   #handlerMap = new Map<keyof M, Set<M[keyof M]>>()
 
@@ -14,7 +16,9 @@ class SyncEvent<M extends Record<string, (...arg: any) => void>> {
    * will remove in version 0.6.0
    * use interceptDispatch instead
    */
-  public deaf = () => {}
+  public deaf = () => {
+    this.interceptDispatch()
+  }
 
   /**
    * interceptDispatch will stop all dispatch
@@ -80,7 +84,7 @@ class SyncEvent<M extends Record<string, (...arg: any) => void>> {
   /**
    * auto clear all callback
    * @param type
-   * @returns
+   * @returns {this}
    */
   public autoClear = <K extends keyof M>(type?: K) => {
     if (type) {
@@ -136,7 +140,15 @@ class SyncEvent<M extends Record<string, (...arg: any) => void>> {
   }
 
   // waitUil return promise which will resolve util the event type is dispatch
-  public waitUtil = <K extends keyof M>(type: K, timeout: number = 0) => {
+  // cancelRef will set current property cancel function
+  // cancelRef is design to avid memory leak
+  // you should call cancelRef.current() when you don't need to await return promise anymore
+  // waitUtil will throw cancel Error when cancelRef.current is called
+  public waitUtil = <K extends keyof M>(
+    type: K,
+    timeout: number = 0,
+    cancelRef?: { current: () => void },
+  ) => {
     return new Promise<Arguments<M[K]>>((res, rej) => {
       let timeID: number | undefined
       const callback = (...args: any) => {
@@ -145,8 +157,20 @@ class SyncEvent<M extends Record<string, (...arg: any) => void>> {
       }
       // @ts-ignore
       this.once(type, callback)
+      const cancel = () => {
+        if (timeID !== undefined) clearTimeout(timeID)
+        // @ts-ignore
+        this.cancel(type, callback)
+        rej(errors.CancelError)
+      }
+      // eslint-disable-next-line no-param-reassign
+      if (cancelRef && typeof cancelRef === 'object') cancelRef.current = cancel
       if (timeout > 0) {
-        timeID = setTimeout(rej, timeout) as unknown as number
+        timeID = setTimeout(() => {
+          rej(errors.TimeoutError)
+          // @ts-ignore
+          this.cancel(type, callback)
+        }, timeout) as unknown as number
       }
     })
   }
@@ -169,4 +193,4 @@ class SyncEvent<M extends Record<string, (...arg: any) => void>> {
 
 type Arguments<T> = T extends (...args: infer R) => void ? R : never
 
-export { SyncEvent }
+export { SyncEvent, errors }
