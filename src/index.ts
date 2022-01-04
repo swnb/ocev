@@ -9,15 +9,39 @@ class SyncEvent<M extends Record<string, (...arg: any) => void>> {
 
   #onceHandlerWrapperMap = new Map<M[keyof M], M[keyof M]>()
 
+  #observer: Pick<SyncEvent<M>, 'on' | 'once' | 'sequenceOn' | 'cancel' | 'waitUtil'>
+
+  #publisher: Pick<SyncEvent<M>, 'dispatch' | 'interceptDispatch' | 'unInterceptDispatch'>
+
   protected eventNamespace = ''
 
+  constructor() {
+    this.#observer = Object.freeze({
+      on: this.on,
+      once: this.once,
+      sequenceOn: this.sequenceOn,
+      cancel: this.cancel,
+      waitUtil: this.waitUtil,
+    })
+    this.#publisher = Object.freeze({
+      dispatch: this.dispatch,
+      interceptDispatch: this.interceptDispatch,
+      unInterceptDispatch: this.unInterceptDispatch,
+    })
+  }
+
   /**
-   * @deprecated since version 0.5.0
-   * will remove in version 0.6.0
-   * use interceptDispatch instead
+   * observer only allow to call method : 'on' | 'once' | 'sequenceOn' | 'cancel' | 'waitUtil'
    */
-  public deaf = () => {
-    this.interceptDispatch()
+  get observer() {
+    return this.#observer
+  }
+
+  /**
+   * publisher only allow to call method : 'dispatch' | 'interceptDispatch' | 'unInterceptDispatch'
+   */
+  get publisher() {
+    return this.#publisher
   }
 
   /**
@@ -26,15 +50,6 @@ class SyncEvent<M extends Record<string, (...arg: any) => void>> {
    */
   public interceptDispatch = () => {
     this.#isInterceptDispatch = true
-  }
-
-  /**
-   * @deprecated since version 0.5.0
-   * will remove in version 0.6.0
-   * use reListen instead
-   */
-  public listen = () => {
-    this.unInterceptDispatch()
   }
 
   /**
