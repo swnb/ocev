@@ -9,7 +9,7 @@
   ],
   "scripts": {
     "build": "tsc --build tsconfig.json",
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "npm run build && git push --follow-tags",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
