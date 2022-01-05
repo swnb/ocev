@@ -1,7 +1,15 @@
-import type { Arguments, ObserverAccessControl, PublisherAccessControl } from './types'
+import type {
+  Arguments,
+  HandlerMap,
+  IAccessControlObserver,
+  IAccessControlPublisher,
+  ISyncEvent,
+  ObserverAccessControl,
+  PublisherAccessControl,
+} from './types'
 import * as errors from './errors'
 
-class SyncEvent<M extends Record<string, (...arg: any) => void | Promise<void>>> {
+class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   #handlerMap = new Map<keyof M, Set<M[keyof M]>>()
 
   #isInterceptDispatch = false
@@ -10,9 +18,9 @@ class SyncEvent<M extends Record<string, (...arg: any) => void | Promise<void>>>
 
   #onceHandlerWrapperMap = new Map<M[keyof M], M[keyof M]>()
 
-  #observer: Pick<SyncEvent<M>, 'on' | 'once' | 'sequenceOn' | 'cancel' | 'waitUtil'>
+  #observer: Pick<this, 'on' | 'once' | 'sequenceOn' | 'cancel' | 'waitUtil'>
 
-  #publisher: Pick<SyncEvent<M>, 'dispatch' | 'interceptDispatch' | 'unInterceptDispatch'>
+  #publisher: Pick<this, 'dispatch' | 'interceptDispatch' | 'unInterceptDispatch'>
 
   protected eventNamespace = ''
 
@@ -134,7 +142,7 @@ class SyncEvent<M extends Record<string, (...arg: any) => void | Promise<void>>>
   // all register will call with the arguments
   public dispatch = <K extends keyof M>(type: K, ...arg: Parameters<M[K]>) => {
     // 一段时间内不可以监听事件
-    if (this.#isInterceptDispatch) return
+    if (this.#isInterceptDispatch) return this
 
     const handlers = this.#handlerMap.get(type)
     if (handlers) {
@@ -212,7 +220,7 @@ class SyncEvent<M extends Record<string, (...arg: any) => void | Promise<void>>>
    * @returns {Observer}
    */
   public createObserver = <K extends keyof M>({ events = [] }: ObserverAccessControl<K> = {}) => {
-    return Object.freeze({
+    const observer: IAccessControlObserver<M, K> = Object.freeze({
       on: (key: K, callback: M[K]) => {
         if (!events.includes(key)) throw errors.AccessControlError
         this.on(key, callback)
@@ -222,11 +230,12 @@ class SyncEvent<M extends Record<string, (...arg: any) => void | Promise<void>>>
       sequenceOn: this.sequenceOn,
       cancel: this.cancel,
       waitUtil: this.waitUtil,
-    }) as Pick<SyncEvent<M>, 'on' | 'once' | 'sequenceOn' | 'cancel' | 'waitUtil'>
+    })
+    return observer
   }
 
   /**
-   * create Publisher with access control that can publish specify events , and other behavior
+   * create Publisher with access control that can publish specify events , or control and other behavior
    * @param {PublisherAccessControl}
    * @returns {Publisher}
    */
@@ -235,7 +244,7 @@ class SyncEvent<M extends Record<string, (...arg: any) => void | Promise<void>>>
     canInterceptDispatch = true,
     canUnInterceptDispatch = true,
   }: PublisherAccessControl<K> = {}) => {
-    return Object.freeze({
+    const publisher: IAccessControlPublisher<M, K> = Object.freeze({
       dispatch: (key: K, ...args: Parameters<M[K]>) => {
         if (!events.includes(key)) throw errors.AccessControlError
         this.dispatch(key, ...args)
@@ -249,7 +258,8 @@ class SyncEvent<M extends Record<string, (...arg: any) => void | Promise<void>>>
         if (!canUnInterceptDispatch) throw errors.AccessControlError
         this.unInterceptDispatch()
       },
-    }) as Pick<SyncEvent<M>, 'dispatch' | 'interceptDispatch' | 'unInterceptDispatch'>
+    })
+    return publisher
   }
 }
 
