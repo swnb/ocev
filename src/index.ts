@@ -1,6 +1,7 @@
+import type { Arguments, ObserverAccessControl, PublisherAccessControl } from './types'
 import * as errors from './errors'
 
-class SyncEvent<M extends Record<string, (...arg: any) => void>> {
+class SyncEvent<M extends Record<string, (...arg: any) => void | Promise<void>>> {
   #handlerMap = new Map<keyof M, Set<M[keyof M]>>()
 
   #isInterceptDispatch = false
@@ -204,8 +205,52 @@ class SyncEvent<M extends Record<string, (...arg: any) => void>> {
     }
     return this
   }
-}
 
-type Arguments<T> = T extends (...args: infer R) => void ? R : never
+  /**
+   * create Observer with access control that observer can only listen to specify events , and other behavior
+   * @param {ObserverAccessControl}
+   * @returns {Observer}
+   */
+  public createObserver = <K extends keyof M>({ events = [] }: ObserverAccessControl<K> = {}) => {
+    return Object.freeze({
+      on: (key: K, callback: M[K]) => {
+        if (!events.includes(key)) throw errors.AccessControlError
+        this.on(key, callback)
+        return this
+      },
+      once: this.once,
+      sequenceOn: this.sequenceOn,
+      cancel: this.cancel,
+      waitUtil: this.waitUtil,
+    }) as Pick<SyncEvent<M>, 'on' | 'once' | 'sequenceOn' | 'cancel' | 'waitUtil'>
+  }
+
+  /**
+   * create Publisher with access control that can publish specify events , and other behavior
+   * @param {PublisherAccessControl}
+   * @returns {Publisher}
+   */
+  public createPublisher = <K extends keyof M>({
+    events = [],
+    canInterceptDispatch = true,
+    canUnInterceptDispatch = true,
+  }: PublisherAccessControl<K> = {}) => {
+    return Object.freeze({
+      dispatch: (key: K, ...args: Parameters<M[K]>) => {
+        if (!events.includes(key)) throw errors.AccessControlError
+        this.dispatch(key, ...args)
+        return this
+      },
+      interceptDispatch: () => {
+        if (!canInterceptDispatch) throw errors.AccessControlError
+        this.interceptDispatch()
+      },
+      unInterceptDispatch: () => {
+        if (!canUnInterceptDispatch) throw errors.AccessControlError
+        this.unInterceptDispatch()
+      },
+    }) as Pick<SyncEvent<M>, 'dispatch' | 'interceptDispatch' | 'unInterceptDispatch'>
+  }
+}
 
 export { SyncEvent, errors }
