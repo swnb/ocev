@@ -110,7 +110,7 @@ class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
    * @param type
    * @returns {this}
    */
-  public autoClear = <K extends keyof M>(type?: K) => {
+  public autoClear = <K extends keyof M>(type?: K): this => {
     if (type) {
       this.#handlerMap.set(type, new Set())
     } else {
@@ -217,7 +217,7 @@ class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   /**
    * create Observer with access control that observer can only listen to specify events , and other behavior
    * @param {ObserverAccessControl}
-   * @returns {Observer}
+   * @returns {IAccessControlObserver}
    */
   public createObserver = <K extends keyof M>({ events = [] }: ObserverAccessControl<K> = {}) => {
     const observer: IAccessControlObserver<M, K> = Object.freeze({
@@ -237,13 +237,13 @@ class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   /**
    * create Publisher with access control that can publish specify events , or control and other behavior
    * @param {PublisherAccessControl}
-   * @returns {Publisher}
+   * @returns {IAccessControlPublisher}
    */
   public createPublisher = <K extends keyof M>({
     events = [],
     canInterceptDispatch = true,
     canUnInterceptDispatch = true,
-  }: PublisherAccessControl<K> = {}) => {
+  }: PublisherAccessControl<K> = {}): IAccessControlPublisher<M, K> => {
     const publisher: IAccessControlPublisher<M, K> = Object.freeze({
       dispatch: (key: K, ...args: Parameters<M[K]>) => {
         if (!events.includes(key)) throw errors.AccessControlError
