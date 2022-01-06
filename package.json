@@ -8,7 +8,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc --build tsconfig.json",
+    "build": "tsc --build --clean  && tsc --build tsconfig.json",
     "prepublishOnly": "npm run build && git push --follow-tags",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
