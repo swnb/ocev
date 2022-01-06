@@ -39,6 +39,11 @@ class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     })
   }
 
+  // factory pattern
+  static new<M extends HandlerMap>() {
+    return new SyncEvent<M>()
+  }
+
   /**
    * observer only allow to call method : 'on' | 'once' | 'sequenceOn' | 'cancel' | 'waitUtil'
    */
@@ -263,4 +268,13 @@ class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   }
 }
 
-export { SyncEvent, errors }
+export {
+  SyncEvent,
+  errors,
+  HandlerMap,
+  IAccessControlObserver,
+  IAccessControlPublisher,
+  ISyncEvent,
+  ObserverAccessControl,
+  PublisherAccessControl,
+}
