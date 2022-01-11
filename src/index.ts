@@ -99,7 +99,7 @@ class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   public once = <K extends keyof M>(type: K, handler: M[K]) => {
     const handlerWrapper = (...arg: Arguments<M[K]>) => {
       // @ts-ignore
-      this.cancel(type, handlerWrapper)
+      this.cancel(type, handler)
       // @ts-ignore
       handler(...arg)
     }
