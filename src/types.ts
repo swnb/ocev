@@ -4,7 +4,7 @@ export interface ISyncEvent<M extends HandlerMap> {
   /**
    * observer only allow to call method : 'on' | 'once' | 'sequenceOn' | 'cancel' | 'waitUtil'
    */
-  readonly observer: Pick<this, 'on' | 'once' | 'sequenceOn' | 'cancel' | 'waitUtil'>
+  readonly observer: Pick<this, 'on' | 'once' | 'cancel' | 'waitUtil'>
   /**
    * publisher only allow to call method : 'dispatch' | 'interceptDispatch' | 'unInterceptDispatch'
    */
@@ -47,7 +47,6 @@ export interface ISyncEvent<M extends HandlerMap> {
       current: () => void
     },
   ) => Promise<Arguments<M[K]>>
-  sequenceOn: <K extends keyof M>(type: K, handler: M[K]) => this
   /**
    * create Observer with access control that observer can only listen to specify events , and other behavior
    * @param {ObserverAccessControl}
@@ -80,7 +79,7 @@ export type PublisherAccessControl<Events> = AccessControl<Events> & {
 export type ObserverAccessControl<Events> = AccessControl<Events>
 
 export interface IAccessControlObserver<M extends HandlerMap, K extends keyof M>
-  extends Pick<ISyncEvent<M>, 'once' | 'sequenceOn' | 'cancel' | 'waitUtil'> {
+  extends Pick<ISyncEvent<M>, 'once' | 'cancel' | 'waitUtil'> {
   on: (type: K, handler: M[K]) => this
 }
 

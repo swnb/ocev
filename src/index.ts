@@ -14,11 +14,9 @@ class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
 
   #isInterceptDispatch = false
 
-  #sequencePromiseHandlerMap = new Map<M[keyof M], Promise<void>>()
-
   #onceHandlerWrapperMap = new Map<M[keyof M], M[keyof M]>()
 
-  #observer: Pick<this, 'on' | 'once' | 'sequenceOn' | 'cancel' | 'waitUtil'>
+  #observer: Pick<this, 'on' | 'once' | 'cancel' | 'waitUtil'>
 
   #publisher: Pick<this, 'dispatch' | 'interceptDispatch' | 'unInterceptDispatch'>
 
@@ -26,7 +24,6 @@ class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     this.#observer = Object.freeze({
       on: this.on,
       once: this.once,
-      sequenceOn: this.sequenceOn,
       cancel: this.cancel,
       waitUtil: this.waitUtil,
     })
@@ -132,10 +129,6 @@ class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     const handlerWrapper = this.#onceHandlerWrapperMap.get(handler)
     if (handlerWrapper) {
       this.#onceHandlerWrapperMap.delete(handler)
-      if (handlers) {
-        handlers.delete(handlerWrapper)
-      }
-      return this
     }
 
     return this
@@ -150,17 +143,8 @@ class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     const handlers = this.#handlerMap.get(type)
     if (handlers) {
       handlers.forEach(handler => {
-        // if handler is sequence
-        if (this.#sequencePromiseHandlerMap.has(handler)) {
-          const nextPromise = this.#sequencePromiseHandlerMap
-            .get(handler)!
-            // @ts-ignore
-            .then(() => handler(...arg))
-          this.#sequencePromiseHandlerMap.set(handler, nextPromise)
-        } else {
-          // @ts-ignore
-          handler(...arg)
-        }
+        // @ts-ignore
+        handler(...arg)
       })
     }
     return this
@@ -202,21 +186,6 @@ class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     })
   }
 
-  // each callback will exec after the previous callback return promise is resolved
-  public sequenceOn = <K extends keyof M>(type: K, handler: M[K]) => {
-    if (this.#handlerMap.has(type)) {
-      this.#handlerMap.get(type)!.add(handler)
-      // add sequence callback
-      this.#sequencePromiseHandlerMap.set(handler, Promise.resolve())
-    } else {
-      const set = new Set<M[K]>()
-      set.add(handler)
-      this.#sequencePromiseHandlerMap.set(handler, Promise.resolve())
-      this.#handlerMap.set(type, set)
-    }
-    return this
-  }
-
   /**
    * create Observer with access control that observer can only listen to specify events , and other behavior
    * @param {ObserverAccessControl}
@@ -230,7 +199,6 @@ class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
         return this
       },
       once: this.once,
-      sequenceOn: this.sequenceOn,
       cancel: this.cancel,
       waitUtil: this.waitUtil,
     })
