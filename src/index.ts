@@ -22,8 +22,6 @@ class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
 
   #publisher: Pick<this, 'dispatch' | 'interceptDispatch' | 'unInterceptDispatch'>
 
-  protected eventNamespace = ''
-
   constructor() {
     this.#observer = Object.freeze({
       on: this.on,
