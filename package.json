@@ -14,7 +14,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/swnb/ts-event.git"
+    "url": "git+https://github.com/swnb/event-ts.git"
   },
   "keywords": [
     "event"
@@ -22,9 +22,9 @@
   "author": "swnb",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/swnb/ts-event/issues"
+    "url": "https://github.com/swnb/event-ts/issues"
   },
-  "homepage": "https://github.com/swnb/ts-event#readme",
+  "homepage": "https://github.com/swnb/event-ts#readme",
   "devDependencies": {
     "@swnb/fabric": "^0.6.18",
     "eslint": "^7.17.0",
