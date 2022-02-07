@@ -16,7 +16,7 @@ class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
 
   #onceHandlerWrapperMap = new Map<M[keyof M], M[keyof M]>()
 
-  #observer: Pick<this, 'on' | 'once' | 'cancel' | 'waitUtil'>
+  #observer: Pick<this, 'on' | 'once' | 'off' | 'waitUtil'>
 
   #publisher: Pick<this, 'dispatch' | 'interceptDispatch' | 'unInterceptDispatch'>
 
@@ -24,7 +24,7 @@ class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     this.#observer = Object.freeze({
       on: this.on,
       once: this.once,
-      cancel: this.cancel,
+      off: this.off,
       waitUtil: this.waitUtil,
     })
     this.#publisher = Object.freeze({
@@ -73,9 +73,9 @@ class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
    *
    * @param type  event type , same as dispatch event type
    * @param handler  callback will run when dispatch same event type
-   * @returns
+   * @return {VoidFunction} function off handler
    */
-  public on = <K extends keyof M>(type: K, handler: M[K]) => {
+  public on = <K extends keyof M>(type: K, handler: M[K]): VoidFunction => {
     if (this.#handlerMap.has(type)) {
       this.#handlerMap.get(type)!.add(handler)
     } else {
@@ -83,7 +83,7 @@ class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
       set.add(handler)
       this.#handlerMap.set(type, set)
     }
-    return this
+    return this.off.bind(null, type, handler)
   }
 
   /**
@@ -94,7 +94,7 @@ class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   public once = <K extends keyof M>(type: K, handler: M[K]) => {
     const handlerWrapper = (...arg: Arguments<M[K]>) => {
       // @ts-ignore
-      this.cancel(type, handler)
+      this.off(type, handler)
       // @ts-ignore
       handler(...arg)
     }
@@ -106,12 +106,13 @@ class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   }
 
   /**
-   * auto clear all callback
+   * unregister all callback
    * @param type
    * @returns {this}
    */
-  public autoClear = <K extends keyof M>(type?: K): this => {
+  public offAll = <K extends keyof M>(type?: K): this => {
     if (type) {
+      // FIXME memory leak
       this.#handlerMap.set(type, new Set())
     } else {
       this.#handlerMap = new Map()
@@ -120,7 +121,7 @@ class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     return this
   }
 
-  public cancel = <K extends keyof M>(type: K, handler: M[K]) => {
+  public off = <K extends keyof M>(type: K, handler: M[K]) => {
     const handlers = this.#handlerMap.get(type)
     if (handlers) {
       handlers.delete(handler)
@@ -162,16 +163,20 @@ class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   ) => {
     return new Promise<Arguments<M[K]>>((res, rej) => {
       let timeID: number | undefined
+      let resolved = false
+
       const callback = (...args: any) => {
+        resolved = true
         if (timeID !== undefined) clearTimeout(timeID)
         res(args)
       }
       // @ts-ignore
       this.once(type, callback)
       const cancel = () => {
+        if (resolved) return
         if (timeID !== undefined) clearTimeout(timeID)
         // @ts-ignore
-        this.cancel(type, callback)
+        this.off(type, callback)
         rej(errors.CancelError)
       }
       // eslint-disable-next-line no-param-reassign
@@ -180,9 +185,83 @@ class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
         timeID = setTimeout(() => {
           rej(errors.TimeoutError)
           // @ts-ignore
-          this.cancel(type, callback)
+          this.off(type, callback)
         }, timeout) as unknown as number
       }
+    })
+  }
+
+  // TODO : impl waitUtilAll event list
+  #waitUtilAll = <EventList extends readonly [keyof M, ...(keyof M)[]]>(
+    typeList: EventList,
+    timeout: number = 0,
+    cancelRef?: { current: () => void },
+  ) => {
+    // // ? Head extends K
+    // // ? Tail extends K[]
+    // // ? TransformEventList2ArgumentsList<Tail, [...ArgumentsList, Arguments<M[Head]>]>
+    // // : never
+    // // : never
+    // // : never
+    // return new Promise<TransformEventList2ArgumentsList<EventList, M, []>>(res => {})
+  }
+
+  /**
+   *
+   * @param {K[]} typeList the eventName list
+   * @param {number?} timeout default set to zero, when large than zero , promise will reject errors.TimeoutError
+   * @param {{current:VoidFunction}} cancelRef set current field ,when call cancelRef.current(), promise will throw errors.CancelError
+   * @returns race result
+   */
+  public waitUtilRace = <K extends keyof M>(
+    typeList: K[],
+    timeout: number = 0,
+    cancelRef?: { current: VoidFunction },
+  ) => {
+    if (!Array.isArray(typeList)) throw Error('typeList must be array')
+
+    type Result = K extends keyof M ? Arguments<M[K]> : never
+    return new Promise<Result>((res, rej) => {
+      let timeID: number | undefined
+      let emitIndex = -1
+
+      const callbackList = typeList.map((type, currentIndex) => {
+        const callback = (...args: any[]) => {
+          res(args as any)
+
+          emitIndex = currentIndex
+          callbackList.forEach((fn, index) => {
+            if (currentIndex === index) return
+
+            this.off(typeList[index], fn as any)
+          })
+
+          if (timeID !== undefined) clearTimeout(timeID)
+        }
+        this.once(type, callback as any)
+        return callback
+      })
+
+      const cancel = () => {
+        rej(errors.CancelError)
+        callbackList.forEach((fn, index) => {
+          if (index === emitIndex) return
+
+          this.off(typeList[index], fn as any)
+        })
+
+        if (timeID !== undefined) clearTimeout(timeID)
+      }
+
+      if (timeout > 0) {
+        timeID = setTimeout(() => {
+          rej(errors.TimeoutError)
+          cancel()
+        }, timeout)
+      }
+
+      // eslint-disable-next-line no-param-reassign
+      if (cancelRef) cancelRef.current = cancel
     })
   }
 
@@ -196,10 +275,10 @@ class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
       on: (key: K, callback: M[K]) => {
         if (!events.includes(key)) throw errors.AccessControlError
         this.on(key, callback)
-        return this
+        return this.off.bind(this, key, callback)
       },
       once: this.once,
-      cancel: this.cancel,
+      off: this.off,
       waitUtil: this.waitUtil,
     })
     return observer

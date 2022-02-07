@@ -2,9 +2,9 @@ export type HandlerMap = Record<string, (...arg: any) => void | Promise<void>>
 
 export interface ISyncEvent<M extends HandlerMap> {
   /**
-   * observer only allow to call method : 'on' | 'once' | 'sequenceOn' | 'cancel' | 'waitUtil'
+   * observer only allow to call method : 'on' | 'once' | 'off' | 'waitUtil'
    */
-  readonly observer: Pick<this, 'on' | 'once' | 'cancel' | 'waitUtil'>
+  readonly observer: Pick<this, 'on' | 'once' | 'off' | 'waitUtil'>
   /**
    * publisher only allow to call method : 'dispatch' | 'interceptDispatch' | 'unInterceptDispatch'
    */
@@ -25,7 +25,7 @@ export interface ISyncEvent<M extends HandlerMap> {
    * @param handler  callback will run when dispatch same event type
    * @returns
    */
-  on: <K extends keyof M>(type: K, handler: M[K]) => this
+  on: <K extends keyof M>(type: K, handler: M[K]) => VoidFunction
   /**
    * @param type event type
    * @param handler  callback only run one time
@@ -37,8 +37,8 @@ export interface ISyncEvent<M extends HandlerMap> {
    * @param type
    * @returns {this}
    */
-  autoClear: <K extends keyof M>(type?: K | undefined) => this
-  cancel: <K extends keyof M>(type: K, handler: M[K]) => this
+  offAll: <K extends keyof M>(type?: K | undefined) => this
+  off: <K extends keyof M>(type: K, handler: M[K]) => this
   dispatch: <K extends keyof M>(type: K, ...arg: Parameters<M[K]>) => this
   waitUtil: <K extends keyof M>(
     type: K,
@@ -79,11 +79,25 @@ export type PublisherAccessControl<Events> = AccessControl<Events> & {
 export type ObserverAccessControl<Events> = AccessControl<Events>
 
 export interface IAccessControlObserver<M extends HandlerMap, K extends keyof M>
-  extends Pick<ISyncEvent<M>, 'once' | 'cancel' | 'waitUtil'> {
-  on: (type: K, handler: M[K]) => this
+  extends Pick<ISyncEvent<M>, 'once' | 'off' | 'waitUtil'> {
+  on: (type: K, handler: M[K]) => VoidFunction
 }
 
 export interface IAccessControlPublisher<M extends HandlerMap, K extends keyof M>
   extends Pick<ISyncEvent<M>, 'interceptDispatch' | 'unInterceptDispatch'> {
   dispatch: (type: K, ...arg: Parameters<M[K]>) => this
 }
+
+export type TransformEventList2ArgumentsList<
+  List extends readonly (keyof M)[],
+  M extends Record<string, (...args: any[]) => void>,
+  ArgumentsList extends any[] = [],
+> = List['length'] extends 0
+  ? ArgumentsList
+  : List extends readonly [infer Head, ...infer Tail]
+  ? Head extends keyof M
+    ? Tail extends (keyof M)[]
+      ? TransformEventList2ArgumentsList<Tail, M, [...ArgumentsList, ...Arguments<M[Head]>]>
+      : never
+    : never
+  : never

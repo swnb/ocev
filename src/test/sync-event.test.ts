@@ -22,3 +22,11 @@ async function main() {
     // do something
   }
 }
+
+eventBus.waitUtilRace(['ev1', 'ev2']).then(v => {
+  console.log(v)
+})
+
+setTimeout(() => {
+  eventBus.dispatch('ev2', 10)
+}, 1000)
