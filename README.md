@@ -89,7 +89,7 @@ const callback = (z: string) => {}
 async function waitUtil() {
   for (;;) {
     const z = await eventBus.waitUtil('bar') // this code block util eventBus dispatch event 'bar'
-    callback(z)
+    callback(...z)
   }
 }
 waitUtil()
