@@ -64,10 +64,10 @@ cancel register callback
 ```typescript
 const callback = (z: string) => {}
 eventBus.on('bar', callback)
-eventBus.cancel('bar', callback)
+eventBus.off('bar', callback)
 
-eventBus.autoClear() // cancel all register callback
-eventBus.autoClear('bar') // only cancel event type bar callback
+eventBus.offAll() // cancel all register callback
+eventBus.offAll('bar') // only cancel event type bar callback
 ```
 
 ## use promise
@@ -92,7 +92,7 @@ async function waitUtil() {
     callback(z)
   }
 }
-waiUtil()
+waitUtil()
 ```
 
 you might be confused, code like this doesn't seem to make sense
