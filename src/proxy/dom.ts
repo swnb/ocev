@@ -78,10 +78,11 @@ export class DomEventProxyAgent<T extends HTMLElement> extends SyncEvent<
     }
 
     eventKeys.forEach(key => {
+      const dispatchKey = key.slice(2)
       const pair = [
-        key.slice(2),
+        dispatchKey,
         (...args: any[]) => {
-          ;(this as unknown as SyncEvent<any>).dispatch(key as any, ...args)
+          ;(this as unknown as SyncEvent<any>).dispatch(dispatchKey as any, ...args)
         },
       ] as const
       dom.addEventListener(pair[0], pair[1])
