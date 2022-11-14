@@ -11,7 +11,7 @@
     "build": "tsc --build --clean  && tsc --build tsconfig.json",
     "prepublishOnly": "npm run build",
     "test": "",
-    "postversion": "git tag $npm_package_version && git push && git push --tags"
+    "postversion": "git tag v$npm_package_version && git push && git push --tags"
   },
   "repository": {
     "type": "git",
