@@ -1,4 +1,4 @@
-import { SyncEvent } from 'src/sync-event'
+import { SyncEvent } from '../sync-event'
 
 type ValueOf<E, K extends keyof E = keyof E> = K extends keyof E ? E[K] : never
 
@@ -21,12 +21,6 @@ type UnionEventHandler<E, Keys extends keyof E> = {
     : never
 }
 
-type FindKeyByValue<
-  E,
-  Value extends E[keyof E],
-  Key extends keyof E = keyof E,
-> = E[Key] extends Value ? Key : never
-
 export class DomEventProxyAgent<T extends HTMLElement> extends SyncEvent<
   UnionEventHandler<T, GetAddEventListenerKeys<T>>
 > {
@@ -38,7 +32,8 @@ export class DomEventProxyAgent<T extends HTMLElement> extends SyncEvent<
     return this.#dom
   }
 
-  constructor(dom: T | FindKeyByValue<HTMLElementTagNameMap, T>) {
+  // WARN: you should not call construct directly, use static method create or proxy instead
+  constructor(dom: T | keyof HTMLElementTagNameMap) {
     super()
 
     if (typeof dom === 'string') {
@@ -57,7 +52,7 @@ export class DomEventProxyAgent<T extends HTMLElement> extends SyncEvent<
   }
 
   static create<T extends keyof HTMLElementTagNameMap>(nodeName: T) {
-    return new DomEventProxyAgent(nodeName)
+    return new DomEventProxyAgent<HTMLElementTagNameMap[T]>(nodeName)
   }
 
   static proxy<T extends HTMLElement>(dom: T) {
