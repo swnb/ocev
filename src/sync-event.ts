@@ -16,6 +16,8 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
 
   #onceHandlerWrapperMap = new Map<M[keyof M], M[keyof M]>()
 
+  #anyHandlerSet = new Set<(...args: any[]) => any>()
+
   #observer: Pick<this, 'on' | 'once' | 'off' | 'waitUtil'>
 
   #publisher: Pick<this, 'dispatch' | 'interceptDispatch' | 'unInterceptDispatch'>
@@ -87,6 +89,19 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   }
 
   /**
+   * @param handler  any dispatch will emit handler
+   * @returns
+   */
+  public any = (
+    handler: <T extends keyof M = keyof M>(type: T, ...args: Arguments<M[T]>) => void,
+  ) => {
+    this.#anyHandlerSet.add(handler)
+    return () => {
+      this.#anyHandlerSet.delete(handler)
+    }
+  }
+
+  /**
    * @param type event type
    * @param handler  callback only run one time
    * @returns
@@ -115,8 +130,9 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
       // FIXME memory leak
       this.#handlerMap.set(type, new Set())
     } else {
-      this.#handlerMap = new Map()
-      this.#onceHandlerWrapperMap = new Map()
+      this.#handlerMap.clear()
+      this.#onceHandlerWrapperMap.clear()
+      this.#anyHandlerSet.clear()
     }
     return this
   }
@@ -148,6 +164,12 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
         handler(...arg)
       })
     }
+
+    this.#anyHandlerSet.forEach(handler => {
+      // @ts-ignore
+      handler(type, ...arg)
+    })
+
     return this
   }
 
