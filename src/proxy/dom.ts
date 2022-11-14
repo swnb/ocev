@@ -91,6 +91,7 @@ export class DomEventProxyAgent<T extends HTMLElement> extends SyncEvent<
   }
 
   destroy = () => {
+    this.offAll()
     this.#removeEvenListenerQueue.forEach(pair => {
       this.#dom.removeEventListener(pair[0], pair[1])
     })
