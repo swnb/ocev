@@ -65,7 +65,7 @@ export class DomEventProxyAgent<T extends HTMLElement> extends SyncEvent<
     const findAllEventName = (object: Record<string, any>) => {
       Object.keys(object)
         .filter(key => key.startsWith('on'))
-        .filter(key => object[key] === null || typeof object[key] === 'function')
+        .filter(key => dom[key] === null || typeof dom[key] === 'function')
         .forEach(key => {
           eventKeys.push(key)
         })
