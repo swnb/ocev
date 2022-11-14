@@ -7,7 +7,7 @@ import type {
   PublisherAccessControl,
   IAccessControlPublisher,
 } from './types'
-import { errors } from 'src'
+import { errors } from './index'
 
 export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   #handlerMap = new Map<keyof M, Set<M[keyof M]>>()
