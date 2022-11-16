@@ -1,6 +1,7 @@
-import { SyncEvent } from '../sync-event'
+/* eslint-disable @typescript-eslint/member-ordering */
 import type { ISyncEvent } from '../types'
 import type { GetAddEventListenerKeys, UnionEventHandler } from './common'
+import { WebEventProxyAgent } from './web'
 
 export class DomEventProxyAgent<T extends HTMLElement>
   implements
@@ -9,102 +10,64 @@ export class DomEventProxyAgent<T extends HTMLElement>
       'publisher' | 'dispatch' | 'createPublisher' | 'observer'
     >
 {
-  // combination better than extends
-  #syncEvent = SyncEvent.new<UnionEventHandler<T, GetAddEventListenerKeys<T>>>()
+  #webEventProxyAgent: WebEventProxyAgent<T>
 
-  #dom: T
+  interceptDispatch: WebEventProxyAgent<T>['interceptDispatch']
 
-  #removeEvenListenerQueue: (readonly [string, (...args: any[]) => void])[] = []
+  unInterceptDispatch: WebEventProxyAgent<T>['unInterceptDispatch']
 
-  // rewrite all methods , this is the cost for not use extends
+  on: WebEventProxyAgent<T>['on']
 
-  interceptDispatch = this.#syncEvent.interceptDispatch
+  once: WebEventProxyAgent<T>['once']
 
-  unInterceptDispatch = this.#syncEvent.unInterceptDispatch
+  any: WebEventProxyAgent<T>['any']
 
-  on = this.#syncEvent.on
+  offAll: WebEventProxyAgent<T>['offAll']
 
-  offAll = this.#syncEvent.offAll
+  off: WebEventProxyAgent<T>['off']
 
-  off = this.#syncEvent.off
+  waitUtil: WebEventProxyAgent<T>['waitUtil']
 
-  once = this.#syncEvent.once
-
-  any = this.#syncEvent.any
-
-  waitUtil = this.#syncEvent.waitUtil
-
-  createObserver = this.#syncEvent.createObserver
-
-  get dom() {
-    return this.#dom
-  }
+  createObserver: WebEventProxyAgent<T>['createObserver']
 
   // WARN: you should not call construct directly, use static method create or proxy instead
-  constructor(dom: T | keyof HTMLElementTagNameMap) {
-    if (typeof dom === 'string') {
-      const element = document.createElement(dom)
+  constructor(domOrTagName: T | keyof HTMLElementTagNameMap) {
+    if (typeof domOrTagName === 'string') {
+      const element = document.createElement(domOrTagName) as T
 
       if (!(element instanceof HTMLElement)) {
         throw Error("don't support element which don't extends HTMLElement ")
       }
 
-      this.#dom = element as any as T
+      this.#webEventProxyAgent = WebEventProxyAgent.new(element)
     } else {
-      this.#dom = dom
+      this.#webEventProxyAgent = WebEventProxyAgent.new(domOrTagName as T)
     }
 
-    this.#proxyElement(this.#dom)
+    this.interceptDispatch = this.#webEventProxyAgent.interceptDispatch
+
+    this.unInterceptDispatch = this.#webEventProxyAgent.unInterceptDispatch
+
+    this.on = this.#webEventProxyAgent.on
+
+    this.once = this.#webEventProxyAgent.once
+
+    this.any = this.#webEventProxyAgent.any
+
+    this.offAll = this.#webEventProxyAgent.offAll
+
+    this.off = this.#webEventProxyAgent.off
+
+    this.waitUtil = this.#webEventProxyAgent.waitUtil
+
+    this.createObserver = this.#webEventProxyAgent.createObserver
   }
 
-  static new<T extends HTMLElement>(dom: T | keyof HTMLElementTagNameMap) {
-    return new DomEventProxyAgent(dom)
-  }
-
-  static create<T extends keyof HTMLElementTagNameMap>(nodeName: T) {
+  static createElement<T extends keyof HTMLElementTagNameMap>(nodeName: T) {
     return new DomEventProxyAgent<HTMLElementTagNameMap[T]>(nodeName)
   }
 
-  static proxy<T extends HTMLElement>(dom: T) {
-    return new DomEventProxyAgent(dom)
-  }
-
-  #proxyElement = (dom: T) => {
-    const eventKeys: string[] = []
-
-    const findAllEventName = (object: Record<string, any>) => {
-      Object.keys(object)
-        .filter(key => key.startsWith('on'))
-        .filter(key => dom[key] === null || typeof dom[key] === 'function')
-        .forEach(key => {
-          eventKeys.push(key)
-        })
-    }
-
-    let extendsObject = Object.getPrototypeOf(dom)
-    while (extendsObject) {
-      findAllEventName(extendsObject)
-      extendsObject = Object.getPrototypeOf(extendsObject)
-    }
-
-    eventKeys.forEach(key => {
-      const dispatchKey = key.slice(2)
-      const pair = [
-        dispatchKey,
-        (...args: any[]) => {
-          this.#syncEvent.dispatch(dispatchKey as any, ...(args as any))
-        },
-      ] as const
-      dom.addEventListener(pair[0], pair[1])
-
-      this.#removeEvenListenerQueue.push(pair)
-    })
-  }
-
-  destroy = () => {
-    this.offAll()
-    this.#removeEvenListenerQueue.forEach(pair => {
-      this.#dom.removeEventListener(pair[0], pair[1])
-    })
+  static proxyElement<T extends HTMLElement>(element: T) {
+    return new DomEventProxyAgent<T>(element)
   }
 }
