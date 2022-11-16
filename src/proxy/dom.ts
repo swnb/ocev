@@ -1,4 +1,4 @@
-import { SyncEvent } from 'src/sync-event'
+import { SyncEvent } from '../sync-event'
 import type { ISyncEvent } from '../types'
 import type { GetAddEventListenerKeys, UnionEventHandler } from './common'
 
