@@ -92,7 +92,7 @@ export class DomEventProxyAgent<T extends HTMLElement>
       const pair = [
         dispatchKey,
         (...args: any[]) => {
-          ;(this as unknown as SyncEvent<any>).dispatch(dispatchKey as any, ...args)
+          this.#syncEvent.dispatch(dispatchKey as any, ...(args as any))
         },
       ] as const
       dom.addEventListener(pair[0], pair[1])
