@@ -37,6 +37,13 @@ export interface ISyncEvent<M extends HandlerMap> {
    * @param type
    * @returns {this}
    */
+  /**
+   * @param handler  any dispatch will emit handler
+   * @returns
+   */
+  any: (
+    handler: <T extends keyof M = keyof M>(type: T, ...args: Arguments<M[T]>) => any,
+  ) => VoidFunction
   offAll: <K extends keyof M>(type?: K | undefined) => this
   off: <K extends keyof M>(type: K, handler: M[K]) => this
   dispatch: <K extends keyof M>(type: K, ...arg: Parameters<M[K]>) => this

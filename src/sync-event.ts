@@ -8,9 +8,14 @@ import type {
   IAccessControlPublisher,
 } from './types'
 import { errors } from './index'
+import { CollectionMap } from './map'
 
 export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
-  #handlerMap = new Map<keyof M, Set<M[keyof M]>>()
+  #handlerMap = new CollectionMap<
+    {
+      [K in keyof M]: Set<M[K]>
+    }
+  >()
 
   #isInterceptDispatch = false
 

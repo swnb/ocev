@@ -1,32 +1,40 @@
-import { SyncEvent } from '../sync-event'
+import { SyncEvent } from 'src/sync-event'
+import type { ISyncEvent } from '../types'
+import type { GetAddEventListenerKeys, UnionEventHandler } from './common'
 
-type ValueOf<E, K extends keyof E = keyof E> = K extends keyof E ? E[K] : never
+export class DomEventProxyAgent<T extends HTMLElement>
+  implements
+    Omit<
+      ISyncEvent<UnionEventHandler<T, GetAddEventListenerKeys<T>>>,
+      'publisher' | 'dispatch' | 'createPublisher' | 'observer'
+    >
+{
+  // combination better than extends
+  #syncEvent = SyncEvent.new<UnionEventHandler<T, GetAddEventListenerKeys<T>>>()
 
-type GetAddEventListenerKeys<
-  E extends ValueOf<HTMLElementTagNameMap>,
-  Keys extends keyof E = keyof E,
-> = Keys extends `on${string}`
-  ? E[Keys] extends null | ((...args: any[]) => any)
-    ? E[Keys] extends ((...args: any[]) => any) | null
-      ? Keys
-      : never
-    : never
-  : never
-
-type PrettierListenerKey<Key> = Key extends `on${infer SubString}` ? SubString : never
-
-type UnionEventHandler<E, Keys extends keyof E> = {
-  [key in Keys as PrettierListenerKey<key>]: E[key] extends ((...args: infer Args) => any) | null
-    ? (...args: Args) => void
-    : never
-}
-
-export class DomEventProxyAgent<T extends HTMLElement> extends SyncEvent<
-  UnionEventHandler<T, GetAddEventListenerKeys<T>>
-> {
   #dom: T
 
   #removeEvenListenerQueue: (readonly [string, (...args: any[]) => void])[] = []
+
+  // rewrite all methods , this is the cost for not use extends
+
+  interceptDispatch = this.#syncEvent.interceptDispatch
+
+  unInterceptDispatch = this.#syncEvent.unInterceptDispatch
+
+  on = this.#syncEvent.on
+
+  offAll = this.#syncEvent.offAll
+
+  off = this.#syncEvent.off
+
+  once = this.#syncEvent.once
+
+  any = this.#syncEvent.any
+
+  waitUtil = this.#syncEvent.waitUtil
+
+  createObserver = this.#syncEvent.createObserver
 
   get dom() {
     return this.#dom
@@ -34,8 +42,6 @@ export class DomEventProxyAgent<T extends HTMLElement> extends SyncEvent<
 
   // WARN: you should not call construct directly, use static method create or proxy instead
   constructor(dom: T | keyof HTMLElementTagNameMap) {
-    super()
-
     if (typeof dom === 'string') {
       const element = document.createElement(dom)
 
@@ -51,6 +57,10 @@ export class DomEventProxyAgent<T extends HTMLElement> extends SyncEvent<
     this.#proxyElement(this.#dom)
   }
 
+  static new<T extends HTMLElement>(dom: T | keyof HTMLElementTagNameMap) {
+    return new DomEventProxyAgent(dom)
+  }
+
   static create<T extends keyof HTMLElementTagNameMap>(nodeName: T) {
     return new DomEventProxyAgent<HTMLElementTagNameMap[T]>(nodeName)
   }
@@ -59,7 +69,7 @@ export class DomEventProxyAgent<T extends HTMLElement> extends SyncEvent<
     return new DomEventProxyAgent(dom)
   }
 
-  #proxyElement(dom: T) {
+  #proxyElement = (dom: T) => {
     const eventKeys: string[] = []
 
     const findAllEventName = (object: Record<string, any>) => {
