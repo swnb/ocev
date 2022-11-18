@@ -6,16 +6,15 @@ import type {
   IAccessControlObserver,
   PublisherAccessControl,
   IAccessControlPublisher,
+  LinkableListener,
 } from './types'
 import { errors } from './index'
 import { CollectionMap } from './map'
 
 export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
-  #handlerMap = new CollectionMap<
-    {
-      [K in keyof M]: Set<M[K]>
-    }
-  >()
+  #handlerMap = new CollectionMap<{
+    [K in keyof M]: Set<M[K]>
+  }>()
 
   #isInterceptDispatch = false
 
@@ -82,7 +81,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
    * @param handler  callback will run when dispatch same event type
    * @return {VoidFunction} function off handler
    */
-  public on = <K extends keyof M>(type: K, handler: M[K]): VoidFunction => {
+  public on = <K extends keyof M>(type: K, handler: M[K]): LinkableListener<M> => {
     if (this.#handlerMap.has(type)) {
       this.#handlerMap.get(type)!.add(handler)
     } else {
@@ -90,7 +89,9 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
       set.add(handler)
       this.#handlerMap.set(type, set)
     }
-    return this.off.bind(null, type, handler)
+    const cancelFunction = this.off.bind(null, type, handler)
+
+    return createListenerLinker(this.on, this.once, [cancelFunction])
   }
 
   /**
@@ -111,7 +112,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
    * @param handler  callback only run one time
    * @returns
    */
-  public once = <K extends keyof M>(type: K, handler: M[K]) => {
+  public once = <K extends keyof M>(type: K, handler: M[K]): LinkableListener<M> => {
     const handlerWrapper = (...arg: Arguments<M[K]>) => {
       // @ts-ignore
       this.off(type, handler)
@@ -122,7 +123,10 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     this.on(type, handlerWrapper)
     // @ts-ignore
     this.#onceHandlerWrapperMap.set(handler, handlerWrapper)
-    return this
+
+    const cancelFunction = this.off.bind(null, type, handler)
+
+    return createListenerLinker(this.on, this.once, [cancelFunction])
   }
 
   /**
@@ -338,4 +342,28 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     })
     return publisher
   }
+}
+
+function createListenerLinker<M>(
+  createOnListener: <K extends keyof M>(key: K, callback: M[K]) => VoidFunction,
+  createOnceListener: <K extends keyof M>(key: K, callback: M[K]) => VoidFunction,
+  context: VoidFunction[],
+): LinkableListener<M> {
+  const cancelFunction: LinkableListener<M> = () => {
+    context.reverse().forEach(f => f())
+  }
+
+  cancelFunction.on = <K extends keyof M>(type: K, callback: M[K]): LinkableListener<M> => {
+    const savedContext = [...context, createOnListener(type, callback)]
+
+    return createListenerLinker(createOnListener, createOnceListener, savedContext)
+  }
+
+  cancelFunction.once = <K extends keyof M>(type: K, callback: M[K]): LinkableListener<M> => {
+    const savedContext = [...context, createOnceListener(type, callback)]
+
+    return createListenerLinker(createOnListener, createOnceListener, savedContext)
+  }
+
+  return cancelFunction
 }
