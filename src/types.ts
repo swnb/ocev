@@ -25,13 +25,13 @@ export interface ISyncEvent<M extends HandlerMap> {
    * @param handler  callback will run when dispatch same event type
    * @returns
    */
-  on: <K extends keyof M>(type: K, handler: M[K]) => VoidFunction
+  on: <K extends keyof M>(type: K, handler: M[K]) => LinkableListener<M>
   /**
    * @param type event type
    * @param handler  callback only run one time
    * @returns
    */
-  once: <K extends keyof M>(type: K, handler: M[K]) => this
+  once: <K extends keyof M>(type: K, handler: M[K]) => LinkableListener<M>
   /**
    * auto clear all callback
    * @param type
@@ -108,3 +108,9 @@ export type TransformEventList2ArgumentsList<
       : never
     : never
   : never
+
+export interface LinkableListener<M> {
+  (): void
+  once: <K extends keyof M>(type: K, handler: M[K]) => LinkableListener<M>
+  on: <K extends keyof M>(type: K, handler: M[K]) => LinkableListener<M>
+}
