@@ -19,7 +19,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
 
   #isInterceptDispatch = false
 
-  #onceHandlerWrapperMap = new Map<M[keyof M], M[keyof M]>()
+  #onceHandlerWrapperMap = new Map<M[keyof M], M[keyof M] & { type: keyof M }>()
 
   #anyHandlerSet = new Set<(...args: any[]) => any>()
 
@@ -118,6 +118,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
       // @ts-ignore
       handler(...arg)
     }
+    handlerWrapper.type = type
     // @ts-ignore
     this.on(type, handlerWrapper)
     // @ts-ignore
@@ -151,6 +152,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     const handlerWrapper = this.#onceHandlerWrapperMap.get(handler)
     if (handlerWrapper) {
       this.#onceHandlerWrapperMap.delete(handler)
+      this.off(handlerWrapper.type, handlerWrapper);
     }
 
     return this
