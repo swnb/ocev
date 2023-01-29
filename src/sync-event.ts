@@ -171,14 +171,18 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     const handlers = this.#handlerMap.get(type)
     if (handlers) {
       handlers.forEach(handler => {
-        // @ts-ignore
-        handler(...arg)
+        try {
+          // @ts-ignore
+          handler(...arg)
+        } catch { }
       })
     }
 
     this.#anyHandlerSet.forEach(handler => {
-      // @ts-ignore
-      handler(type, ...arg)
+      try {
+        // @ts-ignore
+        handler(type, ...arg)
+      } catch { }
     })
 
     return this
