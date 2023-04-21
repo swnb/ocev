@@ -9,10 +9,10 @@ export interface CanAddEventListener {
 
 export class WebEventProxyAgent<T extends CanAddEventListener>
   implements
-    Omit<
-      ISyncEvent<UnionEventHandler<T, GetAddEventListenerKeys<T>>>,
-      'publisher' | 'dispatch' | 'createPublisher' | 'observer'
-    >
+  Omit<
+    ISyncEvent<UnionEventHandler<T, GetAddEventListenerKeys<T>>>,
+    'publisher' | 'dispatch' | 'createPublisher' | 'observer'
+  >
 {
   // combination better than extends
   #syncEvent = SyncEvent.new<UnionEventHandler<T, GetAddEventListenerKeys<T>>>()
