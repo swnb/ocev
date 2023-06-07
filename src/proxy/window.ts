@@ -51,6 +51,7 @@ export class WindowEventProxyAgent
   #proxyWindow = () => {
     Object.keys(window)
       .filter(key => key.startsWith('on'))
+      // @ts-ignore
       .filter(key => window[key] === null || typeof window[key] === 'function')
       .forEach(key => {
         const dispatchKey = key.slice(2)

@@ -30,3 +30,10 @@ eventBus.waitUtilRace(['ev1', 'ev2']).then(v => {
 setTimeout(() => {
   eventBus.dispatch('ev2', 10)
 }, 1000)
+
+console.log('here')
+eventBus.on('ev1', () => {}).on('ev2', () => {})
+console.log(
+  'here end',
+  eventBus.on('ev1', () => {}),
+)

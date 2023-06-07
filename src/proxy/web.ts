@@ -9,10 +9,10 @@ export interface CanAddEventListener {
 
 export class WebEventProxyAgent<T extends CanAddEventListener>
   implements
-  Omit<
-    ISyncEvent<UnionEventHandler<T, GetAddEventListenerKeys<T>>>,
-    'publisher' | 'dispatch' | 'createPublisher' | 'observer'
-  >
+    Omit<
+      ISyncEvent<UnionEventHandler<T, GetAddEventListenerKeys<T>>>,
+      'publisher' | 'dispatch' | 'createPublisher' | 'observer'
+    >
 {
   // combination better than extends
   #syncEvent = SyncEvent.new<UnionEventHandler<T, GetAddEventListenerKeys<T>>>()
@@ -61,6 +61,7 @@ export class WebEventProxyAgent<T extends CanAddEventListener>
     const findAllEventName = (object: Record<string, any>) => {
       Object.keys(object)
         .filter(key => key.startsWith('on'))
+        // @ts-ignore
         .filter(key => element[key] === null || typeof element[key] === 'function')
         .forEach(key => {
           eventKeys.push(key)
