@@ -12,9 +12,11 @@ import { errors } from './index'
 import { CollectionMap } from './map'
 
 export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
-  #handlerMap = new CollectionMap<{
-    [K in keyof M]: Set<M[K]>
-  }>()
+  #handlerMap = new CollectionMap<
+    {
+      [K in keyof M]: Set<M[K]>
+    }
+  >()
 
   #isInterceptDispatch = false
 
@@ -156,7 +158,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     const handlerWrapper = this.#onceHandlerWrapperMap.get(handler)
     if (handlerWrapper) {
       this.#onceHandlerWrapperMap.delete(handler)
-      this.off(handlerWrapper.type, handlerWrapper);
+      this.off(handlerWrapper.type, handlerWrapper)
     }
 
     return this
@@ -174,7 +176,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
         try {
           // @ts-ignore
           handler(...arg)
-        } catch { }
+        } catch {}
       })
     }
 
@@ -182,7 +184,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
       try {
         // @ts-ignore
         handler(type, ...arg)
-      } catch { }
+      } catch {}
     })
 
     return this
@@ -193,16 +195,25 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   // cancelRef is design to avid memory leak
   // you should call cancelRef.current() when you don't need to await return promise anymore
   // waitUtil will throw cancel Error when cancelRef.current is called
+  // where select the dispatched value, is where return false, the event will be ignored
   public waitUtil = <K extends keyof M>(
     type: K,
-    timeout: number = 0,
-    cancelRef?: { current: () => void },
+    config: {
+      timeout?: number
+      cancelRef?: { current: () => void }
+      where?: (...args: Arguments<M[K]>) => boolean
+    } = {},
   ) => {
+    const { timeout = 0, cancelRef, where } = config
+
     return new Promise<Arguments<M[K]>>((res, rej) => {
       let timeID: number | undefined
       let resolved = false
 
       const callback = (...args: any) => {
+        // only if where return
+        if (!where?.(...args)) return
+
         resolved = true
         if (timeID !== undefined) clearTimeout(timeID)
         res(args)
