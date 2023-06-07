@@ -1,4 +1,4 @@
-
 {
-  "extends": "./node_modules/@swnb/fabric/dist/eslint"
+  "extends": "./node_modules/@swnb/fabric/dist/eslint",
+  "rules": { "no-await-in-loop": [0] }
 }

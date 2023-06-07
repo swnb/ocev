@@ -1,5 +1,13 @@
 export type HandlerMap = Record<string, (...arg: any) => void | Promise<void>>
 
+export type CancelRef = { current: () => void }
+
+export type WaitUtilConfig<Args extends any[]> = {
+  timeout?: number
+  cancelRef?: CancelRef
+  where?: (...args: Args) => boolean
+}
+
 export interface ISyncEvent<M extends HandlerMap> {
   /**
    * observer only allow to call method : 'on' | 'once' | 'off' | 'waitUtil'

@@ -14,8 +14,8 @@ async function main() {
   const cancelRef2 = { current: () => {} }
   for (;;) {
     await Promise.race([
-      eventBus.waitUtil('ev1', 0, cancelRef1),
-      eventBus.waitUtil('ev2', 0, cancelRef2),
+      eventBus.waitUtil('ev1', { cancelRef: cancelRef1 }),
+      eventBus.waitUtil('ev2', { cancelRef: cancelRef2 }),
     ])
     cancelRef1.current()
     cancelRef2.current()
@@ -26,6 +26,8 @@ async function main() {
 eventBus.waitUtilRace(['ev1', 'ev2']).then(v => {
   console.log(v)
 })
+
+const result = eventBus.waitUtilAll(['ev1', 'ev2'])
 
 setTimeout(() => {
   eventBus.dispatch('ev2', 10)

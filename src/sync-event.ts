@@ -7,16 +7,16 @@ import type {
   PublisherAccessControl,
   IAccessControlPublisher,
   LinkableListener,
+  CancelRef,
+  WaitUtilConfig,
 } from './types'
 import { errors } from './index'
 import { CollectionMap } from './map'
 
 export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
-  #handlerMap = new CollectionMap<
-    {
-      [K in keyof M]: Set<M[K]>
-    }
-  >()
+  #handlerMap = new CollectionMap<{
+    [K in keyof M]: Set<M[K]>
+  }>()
 
   #isInterceptDispatch = false
 
@@ -196,14 +196,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   // you should call cancelRef.current() when you don't need to await return promise anymore
   // waitUtil will throw cancel Error when cancelRef.current is called
   // where select the dispatched value, is where return false, the event will be ignored
-  public waitUtil = <K extends keyof M>(
-    type: K,
-    config: {
-      timeout?: number
-      cancelRef?: { current: () => void }
-      where?: (...args: Arguments<M[K]>) => boolean
-    } = {},
-  ) => {
+  public waitUtil = <K extends keyof M>(type: K, config: WaitUtilConfig<Arguments<M[K]>> = {}) => {
     const { timeout = 0, cancelRef, where } = config
 
     return new Promise<Arguments<M[K]>>((res, rej) => {
@@ -236,6 +229,73 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
           this.off(type, callback)
         }, timeout) as unknown as number
       }
+    })
+  }
+
+  waitUtilAll = async <EventTypeList extends readonly (keyof M)[]>(
+    typeList: EventTypeList,
+    config: WaitUtilConfig<any> = {},
+  ) => {
+    type R<E extends EventTypeList = EventTypeList, Result extends any[] = []> = E extends [
+      infer K,
+      ...infer T,
+    ]
+      ? T['length'] extends 0
+        ? Result
+        : K extends keyof M
+        ? T extends EventTypeList
+          ? R<T, [...Result, Arguments<M[K]>]>
+          : never
+        : never
+      : never
+
+    const { cancelRef: commonCancelRef, timeout = 0, where } = config
+
+    const cancelRefCollection: CancelRef[] = []
+
+    const cancelAll = () => {
+      cancelRefCollection.forEach(({ current }) => current?.())
+    }
+
+    const waitPromises = typeList.map(eventType => {
+      const currentConfig: WaitUtilConfig<any> = {
+        cancelRef: undefined,
+        where,
+      }
+
+      if (commonCancelRef && typeof commonCancelRef === 'object') {
+        const currentCancelRef = Object.seal({ current: () => {} })
+        cancelRefCollection.push(currentCancelRef)
+        currentConfig.cancelRef = currentCancelRef
+      }
+
+      return this.waitUtil(eventType, currentConfig)
+    })
+
+    if (commonCancelRef) {
+      commonCancelRef.current = cancelAll
+    }
+
+    return new Promise<R>((res, rej) => {
+      let timeID: number
+      if (timeout) {
+        timeID = setTimeout(() => {
+          rej(errors.TimeoutError)
+          cancelAll()
+        }, timeout)
+      }
+
+      Promise.all(waitPromises)
+        .then(value => {
+          res(value as R)
+          if (timeID) clearTimeout(timeID)
+        })
+        .catch(error => {
+          rej(error)
+          if (timeID) clearTimeout(timeID)
+          // if any promise reject , cancelALl the other promise
+          cancelAll()
+        })
     })
   }
 
