@@ -299,21 +299,6 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     })
   }
 
-  // TODO : impl waitUtilAll event list
-  #waitUtilAll = <EventList extends readonly [keyof M, ...(keyof M)[]]>(
-    typeList: EventList,
-    timeout: number = 0,
-    cancelRef?: { current: () => void },
-  ) => {
-    // // ? Head extends K
-    // // ? Tail extends K[]
-    // // ? TransformEventList2ArgumentsList<Tail, [...ArgumentsList, Arguments<M[Head]>]>
-    // // : never
-    // // : never
-    // // : never
-    // return new Promise<TransformEventList2ArgumentsList<EventList, M, []>>(res => {})
-  }
-
   /**
    *
    * @param {K[]} typeList the eventName list
