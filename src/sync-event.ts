@@ -190,12 +190,22 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     return this
   }
 
-  // waitUil return promise which will resolve util the event type is dispatch
-  // cancelRef will set current property cancel function
-  // cancelRef is design to avid memory leak
-  // you should call cancelRef.current() when you don't need to await return promise anymore
-  // waitUtil will throw cancel Error when cancelRef.current is called
-  // where select the dispatched value, is where return false, the event will be ignored
+  /**
+   * waitUil return promise which will resolve util the event type is dispatch
+   * cancelRef will set current property cancel function
+   * cancelRef is design to avid memory leak
+   * you should call cancelRef.current() when you don't need to await return promise anymore
+   * waitUtil will throw cancel Error when cancelRef.current is called
+   * where select the dispatched value, is where return false, the event will be ignored
+   * @template K
+   * @param {K} type
+   * @param {{
+        timeout?: number default to 0
+        cancelRef?: { current: () => void }
+        where?: (...args: Arguments<M[K]>) => boolean
+      }} [config={}]
+   * @returns {void; }; where?: (...args: any) => boolean; }) => any}
+   */
   public waitUtil = <K extends keyof M>(
     type: K,
     config: {
