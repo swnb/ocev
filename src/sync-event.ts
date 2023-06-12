@@ -212,7 +212,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
 
       const callback = (...args: any) => {
         // only if where return
-        if (!where?.(...args)) return
+        if (where && !where(...args)) return
 
         resolved = true
         if (timeID !== undefined) clearTimeout(timeID)
