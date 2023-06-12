@@ -239,33 +239,25 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     })
   }
 
-  // TODO : impl waitUtilAll event list
-  #waitUtilAll = <EventList extends readonly [keyof M, ...(keyof M)[]]>(
-    typeList: EventList,
-    timeout: number = 0,
-    cancelRef?: { current: () => void },
-  ) => {
-    // // ? Head extends K
-    // // ? Tail extends K[]
-    // // ? TransformEventList2ArgumentsList<Tail, [...ArgumentsList, Arguments<M[Head]>]>
-    // // : never
-    // // : never
-    // // : never
-    // return new Promise<TransformEventList2ArgumentsList<EventList, M, []>>(res => {})
-  }
-
   /**
-   *
+   * Description placeholder
+   * @template K
    * @param {K[]} typeList the eventName list
-   * @param {number?} timeout default set to zero, when large than zero , promise will reject errors.TimeoutError
-   * @param {{current:VoidFunction}} cancelRef set current field ,when call cancelRef.current(), promise will throw errors.CancelError
-   * @returns race result
+   * @param {{
+        timeout?: number default set to zero, when large than zero , promise will reject errors.TimeoutError
+        cancelRef?: { current: VoidFunction } set current field ,when call cancelRef.current(), promise will throw errors.CancelError
+      }} [config={}]
+   * @returns {Promise<void>}
    */
   public waitUtilRace = <K extends keyof M>(
     typeList: K[],
-    timeout: number = 0,
-    cancelRef?: { current: VoidFunction },
+    config: {
+      timeout?: number
+      cancelRef?: { current: VoidFunction }
+    } = {},
   ) => {
+    const { timeout = 0, cancelRef } = config
+
     if (!Array.isArray(typeList)) throw Error('typeList must be array')
 
     type Result = K extends keyof M ? Arguments<M[K]> : never
