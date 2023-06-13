@@ -321,12 +321,12 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
         timeout?: number default set to zero, when large than zero , promise will reject errors.TimeoutError
         cancelRef?: { current: VoidFunction } set current field ,when call cancelRef.current(), promise will throw errors.CancelError
       }} [config={}]
-   * @returns {Promise<void>}
+   * @returns {Promise}
    */
   public waitUtilRace = <K extends keyof M>(
     typeList: K[],
     config: Omit<WaitUtilConfig<any>, 'where'> = {},
-  ) => {
+  ): Promise<K extends keyof M ? Arguments<M[K]> : never> => {
     const { timeout = 0, cancelRef } = config
 
     if (!Array.isArray(typeList)) throw Error('typeList must be array')
