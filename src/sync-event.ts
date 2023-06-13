@@ -190,12 +190,22 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     return this
   }
 
-  // waitUil return promise which will resolve util the event type is dispatch
-  // cancelRef will set current property cancel function
-  // cancelRef is design to avid memory leak
-  // you should call cancelRef.current() when you don't need to await return promise anymore
-  // waitUtil will throw cancel Error when cancelRef.current is called
-  // where select the dispatched value, is where return false, the event will be ignored
+  /**
+   * waitUil return promise which will resolve util the event type is dispatch
+   * cancelRef will set current property cancel function
+   * cancelRef is design to avid memory leak
+   * you should call cancelRef.current() when you don't need to await return promise anymore
+   * waitUtil will throw cancel Error when cancelRef.current is called
+   * where select the dispatched value, is where return false, the event will be ignored
+   * @template K
+   * @param {K} type
+   * @param {{
+        timeout?: number default to 0
+        cancelRef?: { current: () => void }
+        where?: (...args: Arguments<M[K]>) => boolean
+      }} [config={}]
+   * @returns {void; }; where?: (...args: any) => boolean; }) => any}
+   */
   public waitUtil = <K extends keyof M>(type: K, config: WaitUtilConfig<Arguments<M[K]>> = {}) => {
     const { timeout = 0, cancelRef, where } = config
 
@@ -205,14 +215,16 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
 
       const callback = (...args: any) => {
         // only if where return
-        if (!where?.(...args)) return
+        if (where && !where(...args)) return
 
         resolved = true
         if (timeID !== undefined) clearTimeout(timeID)
         res(args)
+        // @ts-ignore
+        this.off(type, callback)
       }
       // @ts-ignore
-      this.once(type, callback)
+      this.on(type, callback)
       const cancel = () => {
         if (resolved) return
         if (timeID !== undefined) clearTimeout(timeID)
@@ -300,17 +312,24 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   }
 
   /**
-   *
+   * Description placeholder
+   * @template K
    * @param {K[]} typeList the eventName list
-   * @param {number?} timeout default set to zero, when large than zero , promise will reject errors.TimeoutError
-   * @param {{current:VoidFunction}} cancelRef set current field ,when call cancelRef.current(), promise will throw errors.CancelError
-   * @returns race result
+   * @param {{
+        timeout?: number default set to zero, when large than zero , promise will reject errors.TimeoutError
+        cancelRef?: { current: VoidFunction } set current field ,when call cancelRef.current(), promise will throw errors.CancelError
+      }} [config={}]
+   * @returns {Promise<void>}
    */
   public waitUtilRace = <K extends keyof M>(
     typeList: K[],
-    timeout: number = 0,
-    cancelRef?: { current: VoidFunction },
+    config: {
+      timeout?: number
+      cancelRef?: { current: VoidFunction }
+    } = {},
   ) => {
+    const { timeout = 0, cancelRef } = config
+
     if (!Array.isArray(typeList)) throw Error('typeList must be array')
 
     type Result = K extends keyof M ? Arguments<M[K]> : never
