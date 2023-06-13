@@ -249,7 +249,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     config: WaitUtilConfig<Arguments<M[EventTypeList[number]]>> = {},
   ) => {
     if (!Array.isArray(typeList) || typeList.length <= 0) {
-      throw Error('typeList must be array with at least one param')
+      throw Error('typeList must be array with at least one type')
     }
 
     type Result = {
@@ -322,7 +322,9 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   ): Promise<K extends keyof M ? Arguments<M[K]> : never> => {
     const { timeout = 0, cancelRef } = config
 
-    if (!Array.isArray(typeList)) throw Error('typeList must be array')
+    if (!Array.isArray(typeList) || typeList.length <= 0) {
+      throw Error('typeList must be array with at least one type')
+    }
 
     type Result = K extends keyof M ? Arguments<M[K]> : never
     return new Promise<Result>((res, rej) => {
