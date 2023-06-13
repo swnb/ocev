@@ -14,9 +14,11 @@ import { errors } from './index'
 import { CollectionMap } from './map'
 
 export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
-  #handlerMap = new CollectionMap<{
-    [K in keyof M]: Set<M[K]>
-  }>()
+  #handlerMap = new CollectionMap<
+    {
+      [K in keyof M]: Set<M[K]>
+    }
+  >()
 
   #isInterceptDispatch = false
 
@@ -250,7 +252,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   ) => {
     type R<E extends EventTypeList = EventTypeList, Result extends any[] = []> = E extends [
       infer K,
-      ...infer T,
+      ...infer T
     ]
       ? T['length'] extends 0
         ? Result
