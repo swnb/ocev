@@ -325,10 +325,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
    */
   public waitUtilRace = <K extends keyof M>(
     typeList: K[],
-    config: {
-      timeout?: number
-      cancelRef?: { current: VoidFunction }
-    } = {},
+    config: Omit<WaitUtilConfig<any>, 'where'> = {},
   ) => {
     const { timeout = 0, cancelRef } = config
 
