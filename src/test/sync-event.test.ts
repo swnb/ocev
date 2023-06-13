@@ -3,8 +3,8 @@ import { SyncEvent } from '..'
 // define event handler type
 
 type EventHandlerMap = {
-  ev1: (v1: string) => void
-  ev2: (v2: number) => void
+  ev1: (v1: string, v2: number) => void
+  ev2: (v1: number, v2: string) => void
 }
 
 const eventBus = new SyncEvent<EventHandlerMap>()
@@ -27,10 +27,14 @@ eventBus.waitUtilRace(['ev1', 'ev2']).then(v => {
   console.log(v)
 })
 
-const result = eventBus.waitUtilAll(['ev1', 'ev2'])
+const result = eventBus.waitUtilAll(['ev1', 'ev2'], {
+  where(ev1, ev2) {
+    return true
+  },
+})
 
 setTimeout(() => {
-  eventBus.dispatch('ev2', 10)
+  eventBus.dispatch('ev2', 10, '')
 }, 1000)
 
 console.log('here')

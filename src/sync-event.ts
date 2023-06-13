@@ -14,11 +14,9 @@ import { errors } from './index'
 import { CollectionMap } from './map'
 
 export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
-  #handlerMap = new CollectionMap<
-    {
-      [K in keyof M]: Set<M[K]>
-    }
-  >()
+  #handlerMap = new CollectionMap<{
+    [K in keyof M]: Set<M[K]>
+  }>()
 
   #isInterceptDispatch = false
 
@@ -246,22 +244,17 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     })
   }
 
-  waitUtilAll = async <EventTypeList extends readonly (keyof M)[]>(
+  waitUtilAll = async <EventTypeList extends (keyof M)[] | []>(
     typeList: EventTypeList,
-    config: WaitUtilConfig<any> = {},
+    config: WaitUtilConfig<Arguments<M[EventTypeList[number]]>> = {},
   ) => {
-    type R<E extends EventTypeList = EventTypeList, Result extends any[] = []> = E extends [
-      infer K,
-      ...infer T
-    ]
-      ? T['length'] extends 0
-        ? Result
-        : K extends keyof M
-        ? T extends EventTypeList
-          ? R<T, [...Result, Arguments<M[K]>]>
-          : never
-        : never
-      : never
+    if (!Array.isArray(typeList) || typeList.length <= 0) {
+      throw Error('typeList must be array with at least one param')
+    }
+
+    type Result = {
+      -readonly [P in keyof EventTypeList]: Arguments<M[EventTypeList[P]]>
+    }
 
     const { cancelRef: commonCancelRef, timeout = 0, where } = config
 
@@ -290,7 +283,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
       commonCancelRef.current = cancelAll
     }
 
-    return new Promise<R>((res, rej) => {
+    return new Promise<Result>((res, rej) => {
       let timeID: number
       if (timeout) {
         timeID = setTimeout(() => {
@@ -301,7 +294,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
 
       Promise.all(waitPromises)
         .then(value => {
-          res(value as R)
+          res(value as Result)
           if (timeID) clearTimeout(timeID)
         })
         .catch(error => {
