@@ -227,9 +227,11 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
         resolved = true
         if (timeID !== undefined) clearTimeout(timeID)
         res(args)
+        // @ts-ignore
+        this.off(type, callback)
       }
       // @ts-ignore
-      this.once(type, callback)
+      this.on(type, callback)
       const cancel = () => {
         if (resolved) return
         if (timeID !== undefined) clearTimeout(timeID)
