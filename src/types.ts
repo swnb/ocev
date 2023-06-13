@@ -57,13 +57,7 @@ export interface ISyncEvent<M extends HandlerMap> {
   dispatch: <K extends keyof M>(type: K, ...arg: Parameters<M[K]>) => this
   waitUtil: <K extends keyof M>(
     type: K,
-    config?: {
-      timeout?: number
-      cancelRef?: {
-        current: () => void
-      }
-      where?: (...args: Arguments<M[K]>) => boolean
-    },
+    config?: WaitUtilConfig<Arguments<M[K]>>,
   ) => Promise<Arguments<M[K]>>
   /**
    * create Observer with access control that observer can only listen to specify events , and other behavior
