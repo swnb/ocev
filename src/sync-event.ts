@@ -14,9 +14,11 @@ import { errors } from './index'
 import { CollectionMap } from './map'
 
 export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
-  #handlerMap = new CollectionMap<{
-    [K in keyof M]: Set<M[K]>
-  }>()
+  #handlerMap = new CollectionMap<
+    {
+      [K in keyof M]: Set<M[K]>
+    }
+  >()
 
   #isInterceptDispatch = false
 
@@ -244,7 +246,8 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     })
   }
 
-  waitUtilAll = async <EventTypeList extends (keyof M)[] | []>(
+  // TODO
+  private waitUtilAll = async <EventTypeList extends (keyof M)[] | []>(
     typeList: EventTypeList,
     config: WaitUtilConfig<Arguments<M[EventTypeList[number]]>> = {},
   ) => {
@@ -295,13 +298,14 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
       Promise.all(waitPromises)
         .then(value => {
           res(value as Result)
-          if (timeID) clearTimeout(timeID)
         })
         .catch(error => {
           rej(error)
-          if (timeID) clearTimeout(timeID)
           // if any promise reject , cancelALl the other promise
           cancelAll()
+        })
+        .finally(() => {
+          if (timeID) clearTimeout(timeID)
         })
     })
   }
@@ -316,11 +320,12 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
       }} [config={}]
    * @returns {Promise}
    */
-  public waitUtilRace = <K extends keyof M>(
+  // TODO
+  private waitUtilRace = <K extends keyof M>(
     typeList: K[],
-    config: Omit<WaitUtilConfig<any>, 'where'> = {},
+    config: WaitUtilConfig<any> = {},
   ): Promise<K extends keyof M ? Arguments<M[K]> : never> => {
-    const { timeout = 0, cancelRef } = config
+    const { timeout = 0, cancelRef, where } = config
 
     if (!Array.isArray(typeList) || typeList.length <= 0) {
       throw Error('typeList must be array with at least one type')
@@ -344,7 +349,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
 
           if (timeID !== undefined) clearTimeout(timeID)
         }
-        this.once(type, callback as any)
+        this.on(type, callback as any)
         return callback
       })
 
