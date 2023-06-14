@@ -247,6 +247,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   }
 
   // TODO
+  /** @access private */
   private waitUtilAll = async <EventTypeList extends (keyof M)[] | []>(
     typeList: EventTypeList,
     config: WaitUtilConfig<Arguments<M[EventTypeList[number]]>> = {},
@@ -312,6 +313,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
 
   /**
    * Description placeholder
+   * @access private
    * @template K
    * @param {K[]} typeList the eventName list
    * @param {{
@@ -325,7 +327,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     typeList: K[],
     config: WaitUtilConfig<any> = {},
   ): Promise<K extends keyof M ? Arguments<M[K]> : never> => {
-    const { timeout = 0, cancelRef, where } = config
+    const { timeout = 0, cancelRef } = config
 
     if (!Array.isArray(typeList) || typeList.length <= 0) {
       throw Error('typeList must be array with at least one type')

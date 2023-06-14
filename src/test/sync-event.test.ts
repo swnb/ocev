@@ -23,16 +23,6 @@ async function main() {
   }
 }
 
-eventBus.waitUtilRace(['ev1', 'ev2']).then(v => {
-  console.log(v)
-})
-
-const result = eventBus.waitUtilAll(['ev1', 'ev2'], {
-  where(ev1, ev2) {
-    return true
-  },
-})
-
 setTimeout(() => {
   eventBus.dispatch('ev2', 10, '')
 }, 1000)
