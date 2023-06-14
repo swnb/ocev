@@ -31,5 +31,5 @@
     "src/*_test.ts",
     "src/proxy/chrome.ts"
   ],
-  "include": ["src/*.json", "src/*.ts", "src/proxy/*.ts"]
+  "include": ["src"]
 }

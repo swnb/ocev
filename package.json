@@ -27,11 +27,11 @@
   },
   "homepage": "https://github.com/swnb/event-ts#readme",
   "devDependencies": {
-    "@swnb/fabric": "^0.6.18",
+    "@swnb/fabric": "^0.7.1",
     "eslint": "^8.27.0",
     "prettier": "^2.7.1"
   },
   "dependencies": {
-    "typescript": "^4.8.4"
+    "typescript": "^5.1.3"
   }
 }
