@@ -5,7 +5,9 @@ name: publish to npm
 
 on:
   release:
-    types: [created]
+    types:
+      - created
+      - prereleased
 
 jobs:
   publish-npm:
