@@ -1,4 +1,4 @@
-import type {
+export type {
   HandlerMap,
   IAccessControlObserver,
   IAccessControlPublisher,
@@ -12,12 +12,4 @@ export { SyncEvent } from './sync-event'
 export { DomEventProxyAgent } from './proxy/dom'
 export { WebEventProxyAgent } from './proxy/web'
 export { WindowEventProxyAgent } from './proxy/window'
-
-export {
-  HandlerMap,
-  IAccessControlObserver,
-  IAccessControlPublisher,
-  ISyncEvent,
-  ObserverAccessControl,
-  PublisherAccessControl,
-}
+export { LazyWebEventProxyAgent } from './proxy/lazy-web'
