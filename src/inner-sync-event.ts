@@ -3,9 +3,16 @@ import { SyncEvent } from './sync-event'
 import { HandlerMap, LinkableListener } from './types'
 
 export class InnerHookAbleSyncEvent<M extends HandlerMap> extends SyncEvent<M> {
+  // factory pattern
+  static override new<M extends HandlerMap>() {
+    return new InnerHookAbleSyncEvent<M>()
+  }
+
   public override on = <K extends keyof M>(type: K, handler: M[K]): LinkableListener<M> => {
-    // @ts-ignore
-    this.dispatch('__onSyncEventListener__', type)
+    if (type !== '__onSyncEventListener__' && type !== '__offSyncEventListener__') {
+      // @ts-ignore
+      this.dispatch('__onSyncEventListener__', type)
+    }
 
     const cancelFunction = super.on(type, handler)
 
