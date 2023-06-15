@@ -1,6 +1,9 @@
 lockfileVersion: '6.0'
 
 dependencies:
+  '@swnb/event':
+    specifier: 0.15.0-alpha
+    version: 0.15.0-alpha
   typescript:
     specifier: ^5.1.3
     version: 5.1.3
@@ -1575,6 +1578,12 @@ packages:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.13.0
     dev: true
+
+  /@swnb/event@0.15.0-alpha:
+    resolution: {integrity: sha512-lkjiRvlX15+wH4f9343Qe1A732hrosM1ytTR5zSoirWs33OcV0a1b8hWSVCd0tJw7IugRD7j+4MbrBiCAPkKMQ==}
+    dependencies:
+      typescript: 5.1.3
+    dev: false
 
   /@swnb/fabric@0.7.1:
     resolution: {integrity: sha512-SQYNjqWt7SIRysTZtPpAKh/5H11Qa4szAu/T4ECcf0+a1mItlHApfTMsCECXwiUnn4vZ3HZpmtu/afEb2n7zGA==}
