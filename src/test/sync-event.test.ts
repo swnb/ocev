@@ -1,4 +1,4 @@
-import { SyncEvent } from '..'
+import { LazyWebEventProxyAgent, SyncEvent } from '..'
 
 // define event handler type
 
