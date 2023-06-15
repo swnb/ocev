@@ -33,7 +33,6 @@
     "tsc-alias": "^1.8.6"
   },
   "dependencies": {
-    "@swnb/event": "0.15.0-alpha",
     "typescript": "^5.1.3"
   },
   "publishConfig": {
