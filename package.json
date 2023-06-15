@@ -8,7 +8,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc --build --clean  && tsc --build tsconfig.json",
+    "build": "tsc --build --clean  && tsc --build tsconfig.json && npx tsc-alias",
     "prepublishOnly": "npm run build",
     "test": "",
     "postversion": "git push && git push --tags"
@@ -29,7 +29,8 @@
   "devDependencies": {
     "@swnb/fabric": "^0.7.1",
     "eslint": "^8.27.0",
-    "prettier": "^2.7.1"
+    "prettier": "^2.7.1",
+    "tsc-alias": "^1.8.6"
   },
   "dependencies": {
     "@swnb/event": "0.15.0-alpha",

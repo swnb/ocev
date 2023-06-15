@@ -1,6 +1,6 @@
 import type { UnionEventHandler, GetAddEventListenerKeys } from './common'
-import type { ISyncEvent } from '../types'
-import { SyncEvent } from '../sync-event'
+import type { ISyncEvent } from '@/types'
+import { SyncEvent } from '@/sync-event'
 
 export interface CanAddEventListener {
   addEventListener: (eventName: string, callback: (...args: any[]) => any) => any

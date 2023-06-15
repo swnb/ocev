@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/member-ordering */
-import type { ISyncEvent } from '../types'
+import type { ISyncEvent } from '@/types'
 import type { GetAddEventListenerKeys, UnionEventHandler } from './common'
 import { WebEventProxyAgent } from './web'
 
