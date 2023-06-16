@@ -34,7 +34,7 @@ useEffect(() => {
 }, [target])
 ```
 
-if you want to bind multiple events, you will have to this
+if you want to bind multiple events, you will have to do this
 
 ```tsx example.tsx
 useEffect(() => {
