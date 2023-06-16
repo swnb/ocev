@@ -6,15 +6,177 @@
 
 ```shell
 npm install @swnb/event
-```
-
-or
-
-```shell
+# or
 yarn add @swnb/event
+# or
+pnpm i @swnb/event
 ```
 
-## usage
+
+## why we need another event module
+
+
+### three reason why you should use this module
+
+#### 1. simplify event bind module
+
+in `react` , you have to write code like this to bind event
+
+```tsx example.tsx
+useEffect(() => {
+  const callback = () => {}
+
+  target.addEventListner("event", callback)
+
+  return () => {
+    target.removeEvenListner("event", callback)
+  }
+}, [target])
+```
+
+if you want to bind multiple events, you will have to this
+
+```tsx example.tsx
+useEffect(() => {
+  const callback1 = () => {}
+  target.addEventListner("event1", callback1)
+
+  const callback2 = () => {}
+  target.addEventListner("event2", callback2)
+
+  // ....
+
+  return () => {
+    target.removeEvenListner("event1", callback1)
+    target.removeEvenListner("event2", callback2)
+    // ....
+  }
+}, [target])
+```
+
+when you use `@swnb/event`
+
+```tsx example.tsx
+import { LazyWebEventProxyAgent } from "@swnb/event"
+useEffect(
+  () =>
+    LazyWebEventProxyAgent.new(target)
+      .on("event1", (...args) => {}) // support type hint !
+      .on("event2", (...args) => {}) // support type hint !
+      .on("event3", (...args) => {}),// support type hint !
+  [target]
+)
+```
+
+programming has never been easier
+
+#### 2. Promise support
+
+consider a scenario where you want to set up a 'websocket' connection, and wait for the connection to open, and set the maximum connection duration, consider **the correct release of resources**, you might write the following code
+
+
+```typescript websocket.ts
+async function connect(url: string, timeout: number) {
+  const ws = new WebSocket(url)
+
+  return new Promise<WebSocket>((res, rej) => {
+    const timeID = setTimeout(() => {
+      rej(new Error("timeout"))
+      ws.removeEventListener("open", onOpen)
+    }, timeout)
+
+    function onOpen() {
+      res(ws)
+      clearTimeout(timeID)
+      ws.removeEventListener("open", onOpen)
+    }
+
+    ws.addEventListener("open", onOpen)
+  })
+}
+```
+
+when you use `@swnb/event`
+
+```typescript websocket.ts
+import { LazyWebEventProxyAgent } from "@swnb/event"
+
+async function connect(url: string, timeout: number) {
+  const ws = new WebSocket(url)
+
+  await LazyWebEventProxyAgent.new(ws).waitUtil("open", { timeout }) // support type hint !
+
+  return ws
+}
+```
+
+consider a more complex scenario where you create a **webrtc** connection and wait for the connection to 'connected'
+
+```typescript rtc.ts
+import { LazyWebEventProxyAgent } from "@swnb/event"
+
+async function connect(timeout: number) {
+  const connection = new RTCPeerConnection()
+
+  await LazyWebEventProxyAgent.new(connection).waitUtil(
+    "connectionstatechange",
+    {
+      timeout,
+      where: (ev) => connection.connectionState === "connected",
+    }
+  )
+
+  return connection
+}
+```
+
+use 'where' to select the 'connectionState' you want
+
+
+#### Observe all the events of a **web** object
+
+if you want to know what events are fired when 'video' is played, consider writing this
+
+```tsx video.ts
+import { WebEventProxyAgent } from "@swnb/event"
+// support type hint !
+WebEventProxyAgent.new(videoDom).any((eventName, ...args) => {
+  console.log(eventName)
+})
+```
+
+in `react`
+
+```tsx video.tsx
+import { WebEventProxyAgent } from "@swnb/event"
+import { useEffect, useRef } from "react"
+
+function Video() {
+  const videoDomRef = useRef<HTMLVideoElement>(null)
+  useEffect(() => {
+    return WebEventProxyAgent.new(videoDomRef.current!).any(
+      (eventName, ...args) => {
+        console.log(eventName)
+      }
+    )
+  }, [])
+
+  const url = "" // your  video  link
+
+  return <video muted autoPlay src={url} ref={videoDomRef} />
+}
+```
+
+open the console and you will see the order and time of all the 'video' events
+
+![](./docs/img1.png)
+
+
+## concept
+
+there are three main class in `@swnb/event`, `SyncEvent`, `LazyWebEventProxyAgent` , `WebEventProxyAgent`
+
+### SyncEvent
 
 define event handler map
 
@@ -25,7 +187,8 @@ import { SyncEvent } from '@swnb/event'
 // define event handler type
 
 type EventHandlerMap = {
-  bar: (z: string) => void
+  ev1: (arg1: string, arg2:number) => void
+  ev2: (arg1: boolean) => void
 }
 
 ```
@@ -36,160 +199,150 @@ create instance
 
 const eventBus = new SyncEvent<EventHandlerMap>()
 // or
-// const eventBus = SyncEvent.new<EventHandlerMap>()
+const eventBus = SyncEvent.new<EventHandlerMap>()
 ```
 
 register event callback
 
 ```typescript
-
-eventBus.on('bar', z => {
-  // z is type string
+// type hint support!
+eventBus.on('ev1', (arg1,arg2) => {
 })
 
-eventBus.once('bar',z =>{
+eventBus.once('ev2',arg1 =>{
   // this callback only execute one time
 })
+```
 
+register multiple event
+
+```typescript
+// type hint support!
+eventBus
+.on('ev1', (arg1,arg2) => {
+
+})
+.once('ev2',arg1 =>{
+})
+.on("ev1",(arg1,arg2)=>{
+
+})
 ```
 
 dispatch event with argument
 
 ```typescript
-eventBus.dispatch('bar', '')
+eventBus.dispatch('ev1', "1", 2)
 ```
 
 cancel register callback
 
 ```typescript
-const callback = (z: string) => {}
-eventBus.on('bar', callback)
-eventBus.off('bar', callback)
+const callback = (arg1: boolean) => {}
+const cancelFn = eventBus.on('ev2', callback)
+
+// cancel register
+eventBus.off('ev2', callback)
+// or
+cancelFn()
 
 eventBus.offAll() // cancel all register callback
-eventBus.offAll('bar') // only cancel event type bar callback
+eventBus.offAll('ev2') // only cancel event type bar callback
 ```
 
-## use promise
-
-### use method 'waitUtil' instead of method 'on'
-
-you can use method on to register callback
+cancel multiple register at once
 
 ```typescript
-const callback = (z: string) => {}
-eventBus.on('bar', callback)
+
+const cancelFn = eventBus.on('ev2', ()=>{
+
+}).on('ev1',()=>{
+
+})
+
+// clear previous two registered functions at once
+cancelFn()
 ```
 
-you can also use promise with loop to do the same thing
+use method `waitUtil` instead of method `on`
 
 ```typescript
-const callback = (z: string) => {}
-
-async function waitUtil() {
-  for (;;) {
-    const z = await eventBus.waitUtil('bar') // this code block util eventBus dispatch event 'bar'
-    callback(...z)
-  }
-}
-waitUtil()
+// type hint support
+const [arg1, arg2] = await eventBus.waitUtil('ev1') // this code block util 'ev1' dispatch ,
 ```
 
-you might be confused, code like this doesn't seem to make sense
+set timeout for `waitUtil`
 
-but this is useful when you want to await some event to happen  
+```typescript
+const [arg1, arg2] = await eventBus.waitUtil('ev1',{ timeout:1000 }) //  after one second, this method will throw timeout error
+```
 
-for example , create websocket connection and 'waitUtil' websocket open
+cancel `waitUtil`
 
 ```typescript
 async function main() {
-  const ws = new WebSocket('')
-  await new Promise((res, rej) => {
-    ws.onopen = res
-    ws.onerror = rej
-  })
-  // after websocket is open 
+  const cancelRef = { current() {} };
+
+  setTimeout(()=>{
+    cancelRef.current()
+  },1000)
+
+  await eventBus.waitUtil('ev1',{ cancelRef }) // throw cancel error after one second
 }
 ```
 
-you can custom your websocket class use SyncEvent to do the same thing
+select condition
 
 ```typescript
-class CustomWebsocket extends SyncEvent<{ open: VoidFunction }> {
-  constructor(url: string) {
-    ...
-  }
-  ...
-}
-
-async function main() {
-  const ws = new CustomWebsocket('')
-  await ws.waitUtil('open')
-  // after websocket is open 
-}
+  await eventBus.waitUtil('ev1',{ where(arg1,arg2){
+    return arg2 > 1000
+  }})
+  // waitUtil resolve only if arg2 > 1000
 ```
 
-> method 'waitUtil' accept second argument timeout, if timeout less than or equal to zero, 'waitUtil' will block util dispatch, default set to zero
+### LazyWebEventProxyAgent
 
-in situation below , throw error when connection timeout
+`LazyWebEventProxyAgent` has all the functionality of `SyncEvent`
+
+on top of that, you can use it to bind some web objects, in `react` you can do that with no performance cost
 
 ```typescript
-async function main() {
-  const ws = new WebSocket('')
-  await new Promise((res, rej) => {
-    ws.onopen = res
-    ws.onerror = rej
-    setTimeout(() => {
-      rej(Error('timeout')) // throw Error if websocket doesn't open after 1s
-    }, 1000)
-  })
-  // after websocket is open
-}
+import { LazyWebEventProxyAgent } from "@swnb/event"
+
+useEffect(() => {
+    return LazyWebEventProxyAgent.new(window)
+      .on("click", (ev) => {}) // support type hint
+      .on("resize", (ev) => {})
+      .on("contextmenu", (ev) => {})
+  }, [])
 ```
 
-you can use waitUtil with timeout to do the same thing
+### WebEventProxyAgent
+
+the only difference between `WebEventProxyAgent` and `LazyWebEventProxyAgent` is `WebEventProxyAgent` registers all events in the `constructor` so you can watch all events fire using method 'any', `WebEventProxyAgent` needs to call `destroy` to clean up all registered events after it finishes its task
+
+> initializing 'WebEventProxyAgent' is not that cheap, it's better to cache it
+
+use `WebEventProxyAgent` to observe all events triggered in the internal `video`
 
 ```typescript
-const ws = new CustomWebsocket('')
-await ws.waitUtil('open', 1000) // throw TimeoutError after 1s
-```
+import { WebEventProxyAgent } from "@swnb/event"
+import { useEffect, useRef } from "react"
 
-### avoid memory leak in some case
+function Video() {
+  const videoDomRef = useRef<HTMLVideoElement>(null)
+  useEffect(() => {
+    return WebEventProxyAgent.new(videoDomRef.current!).any(
+      (eventName, ...args) => {
+        console.log(eventName)
+      }
+    )
+  }, [])
 
-think this situation ,if you want to Promise.race some 'event'
+  const url = "" // your  video  link
 
-```typescript
-async function main() {
-  for (;;) {
-    await Promise.race([eventBus.waitUtil('ev1'), eventBus.waitUtil('ev2')])
-    // do something
-  }
+  return <video muted autoPlay src={url} ref={videoDomRef} />
 }
 ```
-
-if 'ev1' dispatch usually and 'ev2' never dispatch , ev2 will register lots of callback , that cause memory leak
-
-to avoid that , method 'waitUtil' accept third argument 'cancelRef'，call method cancelRef['current'] will cancel register
-
-code below will avoid memory leak
-
-```typescript
-async function main() {
-  const cancelRef1 = { current: () => {} }
-  const cancelRef2 = { current: () => {} }
-  for (;;) {
-    await Promise.race([
-      eventBus.waitUtil('ev1', 0, cancelRef1),
-      eventBus.waitUtil('ev2', 0, cancelRef2),
-    ])
-    // cancel register
-    cancelRef1.current() 
-    cancelRef2.current()
-    // do something
-  }
-}
-```
-
-## observer and publisher
 
 > to be continue
