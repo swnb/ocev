@@ -18,7 +18,7 @@ pnpm i @swnb/event
 
 ### three reason why you should use this module
 
-#### 1. simplify event bind module
+#### 1. simplify event binding
 
 in `react` , you have to write code like this to bind event
 
