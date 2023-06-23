@@ -28,8 +28,7 @@
   "homepage": "https://github.com/swnb/event-ts#readme",
   "devDependencies": {
     "@swnb/fabric": "^0.7.1",
-    "eslint": "^8.27.0",
-    "prettier": "^2.7.1",
+    "prettier": "^2.8.8",
     "tsc-alias": "^1.8.6"
   },
   "dependencies": {
