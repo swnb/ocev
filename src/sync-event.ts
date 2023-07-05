@@ -29,6 +29,8 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
 
   #publisher: Pick<this, 'dispatch' | 'interceptDispatch' | 'unInterceptDispatch'>
 
+  #listenerCount = 0
+
   constructor() {
     this.#observer = Object.freeze({
       on: this.on,
@@ -85,13 +87,17 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
    * @return {VoidFunction} function off handler
    */
   public on = <K extends keyof M>(type: K, handler: M[K]): LinkableListener<M> => {
-    if (this.#handlerMap.has(type)) {
-      this.#handlerMap.get(type)!.add(handler)
+    const handlersSet = this.#handlerMap.get(type)
+    if (handlersSet) {
+      handlersSet.add(handler)
     } else {
-      const set = new Set<M[K]>()
-      set.add(handler)
-      this.#handlerMap.set(type, set)
+      const newHandlersSet = new Set<M[K]>()
+      newHandlersSet.add(handler)
+      this.#handlerMap.set(type, newHandlersSet)
     }
+
+    this.#listenerCount += 1
+
     const cancelFunction = this.off.bind(null, type, handler)
 
     return createListenerLinker(this.on, this.once, [cancelFunction])
@@ -153,7 +159,10 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   public off = <K extends keyof M>(type: K, handler: M[K]) => {
     const handlers = this.#handlerMap.get(type)
     if (handlers) {
-      handlers.delete(handler)
+      const successDeleted = handlers.delete(handler)
+      if (successDeleted) {
+        this.#listenerCount -= 1
+      }
     }
 
     const handlerWrapper = this.#onceHandlerWrapperMap.get(handler)
@@ -422,5 +431,9 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
       },
     })
     return publisher
+  }
+
+  public get listenerCount() {
+    return this.#listenerCount
   }
 }
