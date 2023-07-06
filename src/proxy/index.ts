@@ -22,8 +22,6 @@ export class EventProxy<T extends CanAddEventListener>
 
   #proxyAllEvent = false
 
-  // rewrite all methods , this is the cost for not use extends
-
   interceptDispatch = this.#syncEvent.interceptDispatch
 
   unInterceptDispatch = this.#syncEvent.unInterceptDispatch
@@ -32,14 +30,13 @@ export class EventProxy<T extends CanAddEventListener>
 
   once = this.#syncEvent.once
 
-  // lazy class can't use any method to listen all event;
-  // any = this.#syncEvent.any
-
   waitUtil = this.#syncEvent.waitUtil
 
   createObserver = this.#syncEvent.createObserver
 
   any = this.#syncEvent.any
+
+  // rewrite all methods , this is the cost for not use extends
 
   // combination better than extends
 
@@ -100,6 +97,10 @@ export class EventProxy<T extends CanAddEventListener>
 
   get element() {
     return this.#element
+  }
+
+  get listenerCount() {
+    return this.#syncEvent.listenerCount
   }
 
   static new<T extends CanAddEventListener>(element: T, options?: Options) {

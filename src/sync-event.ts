@@ -45,11 +45,6 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     })
   }
 
-  // factory pattern
-  static new<M extends HandlerMap>() {
-    return new SyncEvent<M>()
-  }
-
   /**
    * observer only allow to call method : 'on' | 'once' | 'sequenceOn' | 'cancel' | 'waitUtil'
    */
@@ -62,6 +57,11 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
    */
   get publisher() {
     return this.#publisher
+  }
+
+  // factory pattern
+  static new<M extends HandlerMap>() {
+    return new SyncEvent<M>()
   }
 
   /**
@@ -153,6 +153,9 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
       this.#onceHandlerWrapperMap.clear()
       this.#anyHandlerSet.clear()
     }
+
+    this.#listenerCount = 0
+
     return this
   }
 
@@ -301,7 +304,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
         timeID = setTimeout(() => {
           rej(errors.TimeoutError)
           cancelAll()
-        }, timeout)
+        }, timeout) as unknown as number
       }
 
       Promise.all(waitPromises)
@@ -378,7 +381,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
         timeID = setTimeout(() => {
           rej(errors.TimeoutError)
           cancel()
-        }, timeout)
+        }, timeout) as unknown as number
       }
 
       // eslint-disable-next-line no-param-reassign
