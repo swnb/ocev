@@ -66,25 +66,25 @@ test('test sync event on and once', () => {
 
   expect(count).toBe(0)
 
-  eventEmitter.dispatch('ev1', '', 2)
+  eventEmitter.emit('ev1', '', 2)
 
   expect(count).toBe(2)
 
-  eventEmitter.dispatch('ev2', 1, '')
+  eventEmitter.emit('ev2', 1, '')
 
   expect(count).toBe(1)
 
-  eventEmitter.dispatch('ev2', 1, '')
+  eventEmitter.emit('ev2', 1, '')
 
   expect(count).toBe(1)
 
-  eventEmitter.dispatch('ev1', '', 1)
+  eventEmitter.emit('ev1', '', 1)
 
   expect(count).toBe(2)
 
   cancelAll()
 
-  eventEmitter.dispatch('ev1', '', 1)
+  eventEmitter.emit('ev1', '', 1)
 
   expect(count).toBe(2)
 })

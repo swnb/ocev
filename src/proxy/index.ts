@@ -15,7 +15,7 @@ export class EventProxy<T extends CanAddEventListener>
   implements
     Omit<
       ISyncEvent<UnionEventHandler<T, GetAddEventListenerKeys<T>>>,
-      'publisher' | 'dispatch' | 'createPublisher' | 'observer' | 'any'
+      'publisher' | 'emit' | 'createPublisher' | 'observer' | 'any'
     >
 {
   #syncEvent = InnerHookAbleSyncEvent.new<UnionEventHandler<T, GetAddEventListenerKeys<T>>>()
@@ -68,7 +68,7 @@ export class EventProxy<T extends CanAddEventListener>
     this.#syncEvent.on('__onSyncEventListener__', type => {
       if (!this.#alreadyRegisterEventList.has(type)) {
         const callback = (...args: any[]) => {
-          this.#syncEvent.dispatch(type, ...(args as any))
+          this.#syncEvent.emit(type, ...(args as any))
         }
         this.#element.addEventListener(type, callback)
         this.#alreadyRegisterEventList.set(type, {
@@ -149,11 +149,11 @@ export class EventProxy<T extends CanAddEventListener>
     }
 
     eventKeys.forEach(key => {
-      const dispatchKey = key.slice(2)
+      const emitKey = key.slice(2)
       const pair = [
-        dispatchKey,
+        emitKey,
         (...args: any[]) => {
-          this.#syncEvent.dispatch(dispatchKey as any, ...(args as any))
+          this.#syncEvent.emit(emitKey as any, ...(args as any))
         },
       ] as const
 

@@ -27,7 +27,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
 
   #observer: Pick<this, 'on' | 'once' | 'off' | 'waitUtil'>
 
-  #publisher: Pick<this, 'dispatch' | 'interceptDispatch' | 'unInterceptDispatch'>
+  #publisher: Pick<this, 'emit' | 'interceptDispatch' | 'unInterceptDispatch'>
 
   #listenerCount = 0
 
@@ -39,7 +39,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
       waitUtil: this.waitUtil,
     })
     this.#publisher = Object.freeze({
-      dispatch: this.dispatch,
+      emit: this.emit,
       interceptDispatch: this.interceptDispatch,
       unInterceptDispatch: this.unInterceptDispatch,
     })
@@ -53,7 +53,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   }
 
   /**
-   * publisher only allow to call method : 'dispatch' | 'interceptDispatch' | 'unInterceptDispatch'
+   * publisher only allow to call method : 'emit' | 'interceptDispatch' | 'unInterceptDispatch'
    */
   get publisher() {
     return this.#publisher
@@ -65,7 +65,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   }
 
   /**
-   * interceptDispatch will stop all dispatch
+   * interceptDispatch will stop all emit
    * util unInterceptDispatch is called
    */
   public interceptDispatch = () => {
@@ -73,7 +73,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   }
 
   /**
-   * interceptDispatch will resume all dispatch
+   * interceptDispatch will resume all emit
    * nothing will happen if interceptDispatch is not called
    */
   public unInterceptDispatch = () => {
@@ -82,8 +82,8 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
 
   /**
    *
-   * @param type  event type , same as dispatch event type
-   * @param handler  callback will run when dispatch same event type
+   * @param type  event type , same as emit event type
+   * @param handler  callback will run when emit same event type
    * @return {VoidFunction} function off handler
    */
   public on = <K extends keyof M>(type: K, handler: M[K]): LinkableListener<M> => {
@@ -104,7 +104,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   }
 
   /**
-   * @param handler  any dispatch will emit handler
+   * @param handler  any emit will emit handler
    * @returns
    */
   public any = (
@@ -177,9 +177,9 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     return this
   }
 
-  // dispatch event type and some arguments
+  // emit event type and some arguments
   // all register will call with the arguments
-  public dispatch = <K extends keyof M>(type: K, ...arg: Parameters<M[K]>) => {
+  public emit = <K extends keyof M>(type: K, ...arg: Parameters<M[K]>) => {
     // 一段时间内不可以监听事件
     if (this.#isInterceptDispatch) return this
 
@@ -204,12 +204,12 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   }
 
   /**
-   * waitUil return promise which will resolve util the event type is dispatch
+   * waitUil return promise which will resolve util the event type is emit
    * cancelRef will set current property cancel function
    * cancelRef is design to avid memory leak
    * you should call cancelRef.current() when you don't need to await return promise anymore
    * waitUtil will throw cancel Error when cancelRef.current is called
-   * where select the dispatched value, is where return false, the event will be ignored
+   * where select the emited value, is where return false, the event will be ignored
    * @template K
    * @param {K} type
    * @param {{
@@ -419,9 +419,9 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     canUnInterceptDispatch = true,
   }: PublisherAccessControl<K> = {}): IAccessControlPublisher<M, K> => {
     const publisher: IAccessControlPublisher<M, K> = Object.freeze({
-      dispatch: (key: K, ...args: Parameters<M[K]>) => {
+      emit: (key: K, ...args: Parameters<M[K]>) => {
         if (!events.includes(key)) throw errors.AccessControlError
-        this.dispatch(key, ...args)
+        this.emit(key, ...args)
         return this
       },
       interceptDispatch: () => {

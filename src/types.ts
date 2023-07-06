@@ -14,23 +14,23 @@ export interface ISyncEvent<M extends HandlerMap> {
    */
   readonly observer: Pick<this, 'on' | 'once' | 'off' | 'waitUtil'>
   /**
-   * publisher only allow to call method : 'dispatch' | 'interceptDispatch' | 'unInterceptDispatch'
+   * publisher only allow to call method : 'emit' | 'interceptDispatch' | 'unInterceptDispatch'
    */
-  readonly publisher: Pick<this, 'dispatch' | 'interceptDispatch' | 'unInterceptDispatch'>
+  readonly publisher: Pick<this, 'emit' | 'interceptDispatch' | 'unInterceptDispatch'>
   /**
-   * interceptDispatch will stop all dispatch
+   * interceptDispatch will stop all emit
    * util unInterceptDispatch is called
    */
   interceptDispatch: VoidFunction
   /**
-   * interceptDispatch will resume all dispatch
+   * interceptDispatch will resume all emit
    * nothing will happen if interceptDispatch is not called
    */
   unInterceptDispatch: VoidFunction
   /**
    *
-   * @param type  event type , same as dispatch event type
-   * @param handler  callback will run when dispatch same event type
+   * @param type  event type , same as emit event type
+   * @param handler  callback will run when emit same event type
    * @returns
    */
   on: <K extends keyof M>(type: K, handler: M[K]) => LinkableListener<M>
@@ -46,7 +46,7 @@ export interface ISyncEvent<M extends HandlerMap> {
    * @returns {this}
    */
   /**
-   * @param handler  any dispatch will emit handler
+   * @param handler  any emit will emit handler
    * @returns
    */
   any: (
@@ -54,7 +54,7 @@ export interface ISyncEvent<M extends HandlerMap> {
   ) => VoidFunction
   offAll: <K extends keyof M>(type?: K | undefined) => this
   off: <K extends keyof M>(type: K, handler: M[K]) => this
-  dispatch: <K extends keyof M>(type: K, ...arg: Parameters<M[K]>) => this
+  emit: <K extends keyof M>(type: K, ...arg: Parameters<M[K]>) => this
   waitUtil: <K extends keyof M>(
     type: K,
     config?: WaitUtilConfig<Arguments<M[K]>>,
@@ -97,7 +97,7 @@ export interface IAccessControlObserver<M extends HandlerMap, K extends keyof M>
 
 export interface IAccessControlPublisher<M extends HandlerMap, K extends keyof M>
   extends Pick<ISyncEvent<M>, 'interceptDispatch' | 'unInterceptDispatch'> {
-  dispatch: (type: K, ...arg: Parameters<M[K]>) => this
+  emit: (type: K, ...arg: Parameters<M[K]>) => this
 }
 
 export type TransformEventList2ArgumentsList<

@@ -22,7 +22,7 @@ export class InnerHookAbleSyncEvent<M extends HandlerMap>
     this.on = <K extends keyof M>(type: K, handler: M[K]): LinkableListener<M> => {
       if (type !== '__onSyncEventListener__' && type !== '__offSyncEventListener__') {
         // @ts-ignore
-        this.dispatch('__onSyncEventListener__', type)
+        this.emit('__onSyncEventListener__', type)
       }
 
       const cancelFunction = superOn(type, handler)
@@ -33,7 +33,7 @@ export class InnerHookAbleSyncEvent<M extends HandlerMap>
     // override
     this.off = <K extends keyof M>(type: K, handler: M[K]) => {
       // @ts-ignore
-      this.dispatch('__offSyncEventListener__', type)
+      this.emit('__offSyncEventListener__', type)
 
       superOff(type, handler)
 

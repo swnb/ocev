@@ -6,7 +6,7 @@ type WindowEventHandler = UnionEventHandler<Window, GetAddEventListenerKeys<Wind
 
 export class ChromeExtensionEventProxyAgent
   implements
-    Omit<ISyncEvent<WindowEventHandler>, 'publisher' | 'dispatch' | 'createPublisher' | 'observer'>
+    Omit<ISyncEvent<WindowEventHandler>, 'publisher' | 'emit' | 'createPublisher' | 'observer'>
 {
   // combination better than extends
   #syncEvent = SyncEvent.new<WindowEventHandler>()
@@ -53,11 +53,11 @@ export class ChromeExtensionEventProxyAgent
       .filter(key => key.startsWith('on'))
       .filter(key => window[key] === null || typeof window[key] === 'function')
       .forEach(key => {
-        const dispatchKey = key.slice(2)
+        const emitKey = key.slice(2)
         const pair = [
-          dispatchKey,
+          emitKey,
           (...args: any[]) => {
-            this.#syncEvent.dispatch(dispatchKey as any, ...args)
+            this.#syncEvent.emit(emitKey as any, ...args)
           },
         ] as const
         window.addEventListener(pair[0], pair[1])

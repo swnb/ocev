@@ -229,10 +229,10 @@ eventBus
 })
 ```
 
-dispatch event with argument
+emit event with argument
 
 ```typescript
-eventBus.dispatch('ev1', "1", 2)
+eventBus.emit('ev1', "1", 2)
 ```
 
 cancel register callback
@@ -268,7 +268,7 @@ use method `waitUtil` instead of method `on`
 
 ```typescript
 // type hint support
-const [arg1, arg2] = await eventBus.waitUtil('ev1') // this code block util 'ev1' dispatch ,
+const [arg1, arg2] = await eventBus.waitUtil('ev1') // this code block util 'ev1' emit ,
 ```
 
 set timeout for `waitUtil`
