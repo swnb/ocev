@@ -19,7 +19,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     [K in keyof M]: Set<M[K]>
   }>()
 
-  #isInterceptDispatch = false
+  #isInterceptEmit = false
 
   #onceHandlerWrapperMap = new Map<M[keyof M], M[keyof M] & { type: keyof M }>()
 
@@ -27,7 +27,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
 
   #observer: Pick<this, 'on' | 'once' | 'off' | 'waitUtil'>
 
-  #publisher: Pick<this, 'emit' | 'interceptDispatch' | 'unInterceptDispatch'>
+  #publisher: Pick<this, 'emit' | 'interceptEmit' | 'unInterceptEmit'>
 
   #listenerCount = 0
 
@@ -40,8 +40,8 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     })
     this.#publisher = Object.freeze({
       emit: this.emit,
-      interceptDispatch: this.interceptDispatch,
-      unInterceptDispatch: this.unInterceptDispatch,
+      interceptEmit: this.interceptEmit,
+      unInterceptEmit: this.unInterceptEmit,
     })
   }
 
@@ -53,7 +53,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   }
 
   /**
-   * publisher only allow to call method : 'emit' | 'interceptDispatch' | 'unInterceptDispatch'
+   * publisher only allow to call method : 'emit' | 'interceptEmit' | 'unInterceptEmit'
    */
   get publisher() {
     return this.#publisher
@@ -65,19 +65,19 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   }
 
   /**
-   * interceptDispatch will stop all emit
-   * util unInterceptDispatch is called
+   * interceptEmit will stop all emit
+   * util unInterceptEmit is called
    */
-  public interceptDispatch = () => {
-    this.#isInterceptDispatch = true
+  public interceptEmit = () => {
+    this.#isInterceptEmit = true
   }
 
   /**
-   * interceptDispatch will resume all emit
-   * nothing will happen if interceptDispatch is not called
+   * interceptEmit will resume all emit
+   * nothing will happen if interceptEmit is not called
    */
-  public unInterceptDispatch = () => {
-    this.#isInterceptDispatch = true
+  public unInterceptEmit = () => {
+    this.#isInterceptEmit = true
   }
 
   /**
@@ -181,7 +181,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   // all register will call with the arguments
   public emit = <K extends keyof M>(type: K, ...arg: Parameters<M[K]>) => {
     // 一段时间内不可以监听事件
-    if (this.#isInterceptDispatch) return this
+    if (this.#isInterceptEmit) return this
 
     const handlers = this.#handlerMap.get(type)
     if (handlers) {
@@ -415,8 +415,8 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
    */
   public createPublisher = <K extends keyof M>({
     events = [],
-    canInterceptDispatch = true,
-    canUnInterceptDispatch = true,
+    canInterceptEmit = true,
+    canUnInterceptEmit = true,
   }: PublisherAccessControl<K> = {}): IAccessControlPublisher<M, K> => {
     const publisher: IAccessControlPublisher<M, K> = Object.freeze({
       emit: (key: K, ...args: Parameters<M[K]>) => {
@@ -424,13 +424,13 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
         this.emit(key, ...args)
         return this
       },
-      interceptDispatch: () => {
-        if (!canInterceptDispatch) throw errors.AccessControlError
-        this.interceptDispatch()
+      interceptEmit: () => {
+        if (!canInterceptEmit) throw errors.AccessControlError
+        this.interceptEmit()
       },
-      unInterceptDispatch: () => {
-        if (!canUnInterceptDispatch) throw errors.AccessControlError
-        this.unInterceptDispatch()
+      unInterceptEmit: () => {
+        if (!canUnInterceptEmit) throw errors.AccessControlError
+        this.unInterceptEmit()
       },
     })
     return publisher

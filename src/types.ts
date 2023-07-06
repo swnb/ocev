@@ -14,19 +14,19 @@ export interface ISyncEvent<M extends HandlerMap> {
    */
   readonly observer: Pick<this, 'on' | 'once' | 'off' | 'waitUtil'>
   /**
-   * publisher only allow to call method : 'emit' | 'interceptDispatch' | 'unInterceptDispatch'
+   * publisher only allow to call method : 'emit' | 'interceptEmit' | 'unInterceptEmit'
    */
-  readonly publisher: Pick<this, 'emit' | 'interceptDispatch' | 'unInterceptDispatch'>
+  readonly publisher: Pick<this, 'emit' | 'interceptEmit' | 'unInterceptEmit'>
   /**
-   * interceptDispatch will stop all emit
-   * util unInterceptDispatch is called
+   * interceptEmit will stop all emit
+   * util unInterceptEmit is called
    */
-  interceptDispatch: VoidFunction
+  interceptEmit: VoidFunction
   /**
-   * interceptDispatch will resume all emit
-   * nothing will happen if interceptDispatch is not called
+   * interceptEmit will resume all emit
+   * nothing will happen if interceptEmit is not called
    */
-  unInterceptDispatch: VoidFunction
+  unInterceptEmit: VoidFunction
   /**
    *
    * @param type  event type , same as emit event type
@@ -84,8 +84,8 @@ type AccessControl<Event> = {
 }
 
 export type PublisherAccessControl<Events> = AccessControl<Events> & {
-  canInterceptDispatch?: boolean
-  canUnInterceptDispatch?: boolean
+  canInterceptEmit?: boolean
+  canUnInterceptEmit?: boolean
 }
 
 export type ObserverAccessControl<Events> = AccessControl<Events>
@@ -96,7 +96,7 @@ export interface IAccessControlObserver<M extends HandlerMap, K extends keyof M>
 }
 
 export interface IAccessControlPublisher<M extends HandlerMap, K extends keyof M>
-  extends Pick<ISyncEvent<M>, 'interceptDispatch' | 'unInterceptDispatch'> {
+  extends Pick<ISyncEvent<M>, 'interceptEmit' | 'unInterceptEmit'> {
   emit: (type: K, ...arg: Parameters<M[K]>) => this
 }
 

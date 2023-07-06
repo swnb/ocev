@@ -22,9 +22,9 @@ export class EventProxy<T extends CanAddEventListener>
 
   #proxyAllEvent = false
 
-  interceptDispatch = this.#syncEvent.interceptDispatch
+  interceptEmit = this.#syncEvent.interceptEmit
 
-  unInterceptDispatch = this.#syncEvent.unInterceptDispatch
+  unInterceptEmit = this.#syncEvent.unInterceptEmit
 
   off = this.#syncEvent.off
 

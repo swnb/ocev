@@ -15,9 +15,9 @@ export class ChromeExtensionEventProxyAgent
 
   // rewrite all methods , this is the cost for not use extends
 
-  interceptDispatch = this.#syncEvent.interceptDispatch
+  interceptEmit = this.#syncEvent.interceptEmit
 
-  unInterceptDispatch = this.#syncEvent.unInterceptDispatch
+  unInterceptEmit = this.#syncEvent.unInterceptEmit
 
   on = this.#syncEvent.on
 
