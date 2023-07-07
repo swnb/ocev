@@ -1,6 +1,6 @@
 {
   "name": "@swnb/event",
-  "version": "0.17.1",
+  "version": "0.17.2",
   "description": "event module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
