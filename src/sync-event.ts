@@ -14,6 +14,8 @@ import { errors } from './index'
 import { CollectionMap } from './map'
 import { createListenerLinker } from './linkable-listener'
 
+type Args<T> = T extends (...args: infer A) => any ? A : never
+
 export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   #handlerMap = new CollectionMap<{
     [K in keyof M]: Set<M[K]>
@@ -107,12 +109,18 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
    * @param handler  any emit will emit handler
    * @returns
    */
-  public any = (
-    handler: <T extends keyof M = keyof M>(type: T, ...args: Arguments<M[T]>) => void,
+  public any = <K extends keyof M = keyof M>(
+    handler: (type: K, ...args: Arguments<M[K]>) => void,
   ) => {
-    this.#anyHandlerSet.add(handler)
+    if (!this.#anyHandlerSet.has(handler)) {
+      this.#anyHandlerSet.add(handler)
+      this.#listenerCount += 1
+    }
+
     return () => {
-      this.#anyHandlerSet.delete(handler)
+      if (this.#anyHandlerSet.delete(handler)) {
+        this.#listenerCount -= 1
+      }
     }
   }
 
