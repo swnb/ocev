@@ -16,7 +16,7 @@
     "strict": true,
     "skipLibCheck": true,
     "declaration": true,
-    "rootDir": "./src",
+    "rootDir": ".",
     "paths": {
       "@/*": ["./*"]
     }
