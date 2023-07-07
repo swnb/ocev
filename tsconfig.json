@@ -16,7 +16,7 @@
     "strict": true,
     "skipLibCheck": true,
     "declaration": true,
-    "rootDir": ".",
+    "rootDir": "./src",
     "paths": {
       "@/*": ["./*"]
     }
@@ -34,7 +34,8 @@
     "tslint-config-prettier",
     "example/**",
     "src/*_test.ts",
-    "src/proxy/chrome.ts"
+    "src/proxy/chrome.ts",
+    "test"
   ],
-  "include": ["src", "test"]
+  "include": ["src"]
 }
