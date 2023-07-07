@@ -32,6 +32,12 @@ export class EventProxy<T extends CanAddEventListener>
 
   waitUtil = this.#syncEvent.waitUtil
 
+  waitUtilRace = this.#syncEvent.waitUtilRace
+
+  waitUtilAll = this.#syncEvent.waitUtilAll
+
+  waitUtilAny = this.#syncEvent.waitUtilAny
+
   createObserver = this.#syncEvent.createObserver
 
   any = this.#syncEvent.any
@@ -142,10 +148,10 @@ export class EventProxy<T extends CanAddEventListener>
         })
     }
 
-    let extendsObject = Object.getPrototypeOf(element)
-    while (extendsObject) {
-      findAllEventName(extendsObject)
-      extendsObject = Object.getPrototypeOf(extendsObject)
+    let currentObject = element
+    while (currentObject) {
+      findAllEventName(currentObject)
+      currentObject = Object.getPrototypeOf(currentObject)
     }
 
     eventKeys.forEach(key => {
