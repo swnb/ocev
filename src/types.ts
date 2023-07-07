@@ -8,6 +8,12 @@ export type WaitUtilConfig<Args extends any[]> = {
   where?: (...args: Args) => boolean
 }
 
+export type EventListItem<M extends HandlerMap, K extends keyof M> = K extends keyof M
+  ? {
+      event: K
+    } & WaitUtilConfig<Arguments<M[K]>>
+  : never
+
 export interface ISyncEvent<M extends HandlerMap> {
   /**
    * observer only allow to call method : 'on' | 'once' | 'off' | 'waitUtil'

@@ -161,40 +161,6 @@ test('test any event proxy', () => {
   expect(anyCount).toBe(3)
 })
 
-test('test any event proxy', () => {
-  const div = document.createElement('div')
-
-  const divEventProxyAgent = EventProxy.new(div, { proxyAllEvent: true })
-
-  let anyCount = 0
-  divEventProxyAgent.any((evType, ...args) => {
-    expect(evType).toBe('click')
-    anyCount += 1
-  })
-
-  let clickCount = 0
-
-  const cancel = divEventProxyAgent.on('click', () => {
-    clickCount += 1
-  })
-
-  div.click()
-
-  expect(clickCount).toBe(1)
-
-  div.click()
-
-  expect(clickCount).toBe(2)
-
-  cancel()
-
-  div.click()
-
-  expect(clickCount).toBe(2)
-
-  expect(anyCount).toBe(3)
-})
-
 test('test sync event waitUtil', async () => {
   const div = document.createElement('div')
 
@@ -217,47 +183,150 @@ test('test sync event waitUtil', async () => {
 })
 
 test('test sync event bind for window', async () => {
+  let windowEventProxyAgent = EventProxy.new(window)
+
+  let count = 0
+
+  const p = windowEventProxyAgent.waitUtil('resize', {
+    timeout: 3000,
+    where(ev) {
+      expect(ev.type).toBe('resize')
+      count += 1
+      return count === 2
+    },
+  })
+
+  ;(async () => {
+    for (let i = 0; i < 2; i++) {
+      global.dispatchEvent(new Event('resize'))
+      await new Promise<void>(r => {
+        setTimeout(r, 1000)
+      })
+    }
+  })()
+
+  await p
+
+  expect(count).toBe(2)
+
+  windowEventProxyAgent = EventProxy.new(window, { proxyAllEvent: true })
+
+  let clickCount = 0
+
+  windowEventProxyAgent.on('click', () => {
+    clickCount += 1
+  })
+
+  windowEventProxyAgent.any((ev, ...args) => {
+    if (ev === 'click') {
+      clickCount += 1
+    }
+  })
+
+  global.dispatchEvent(new Event('click'))
+
+  expect(clickCount).toBe(2)
+})
+
+test('test waitUtilAll', async () => {
   const windowEventProxyAgent = EventProxy.new(window)
 
-  await Promise.all([
-    windowEventProxyAgent.waitUtil('resize', {
-      timeout: 2000,
+  setTimeout(() => {
+    global.dispatchEvent(new Event('click'))
+    setTimeout(() => {
+      global.dispatchEvent(new Event('focus'))
+    }, 1000)
+  }, 1000)
+
+  const [ev1, ev2] = await windowEventProxyAgent.waitUtilAll([
+    {
+      event: 'click',
+      timeout: 1500,
+    },
+    {
+      event: 'focus',
+      timeout: 2500,
       where(ev) {
-        expect(ev.type).toBe('resize')
-        return window.innerWidth === 191
+        expect(ev.type).toBe('focus')
+        return ev.type === 'focus'
       },
-    }),
-    (async () => {
-      for (let i = 0; i < 2; i++) {
-        global.innerWidth = 190 + i
-        global.dispatchEvent(new Event('resize'))
-        await new Promise<void>(r => {
-          setTimeout(r, 1000)
-        })
-      }
-    })(),
-  ])
+    },
+  ] as const)
+
+  expect(ev1[0].type).toBe('click')
+
+  expect(ev2[0].type).toBe('focus')
 })
 
 test('test waitUtilRace', async () => {
   const windowEventProxyAgent = EventProxy.new(window)
 
-  await Promise.all([
-    windowEventProxyAgent.waitUtil('resize', {
-      timeout: 2000,
+  setTimeout(() => {
+    global.dispatchEvent(new Event('click'))
+  }, 20)
+
+  const [ev] = await windowEventProxyAgent.waitUtilRace([
+    {
+      event: 'click',
+      timeout: 500,
+    },
+    {
+      event: 'focus',
+      timeout: 1000,
       where(ev) {
-        expect(ev.type).toBe('resize')
-        return window.innerWidth === 191
+        expect(ev.type).toBe('focus')
+        return ev.type === 'focus'
       },
-    }),
-    (async () => {
-      for (let i = 0; i < 2; i++) {
-        global.innerWidth = 190 + i
-        global.dispatchEvent(new Event('resize'))
-        await new Promise<void>(r => {
-          setTimeout(r, 1000)
-        })
-      }
-    })(),
+    },
   ])
+
+  expect(ev.type).toBe('click')
+})
+
+test('test waitUtilAny', async () => {
+  const windowEventProxyAgent = EventProxy.new(window)
+
+  setTimeout(() => {
+    global.dispatchEvent(new Event('click'))
+  }, 1000)
+
+  const result1 = await windowEventProxyAgent.waitUtilAny([
+    {
+      event: 'click',
+      timeout: 1500,
+    },
+    {
+      event: 'focus',
+      timeout: 500,
+      where(ev) {
+        expect(ev.type).toBe('focus')
+        return ev.type === 'focus'
+      },
+    },
+  ])
+
+  expect(result1[0].type).toBe('click')
+
+  setTimeout(() => {
+    global.dispatchEvent(new Event('focus'))
+  }, 1000)
+
+  await windowEventProxyAgent
+    .waitUtilAny([
+      {
+        event: 'click',
+        timeout: 1500,
+      },
+      {
+        event: 'focus',
+        timeout: 500,
+        where(ev) {
+          expect(ev.type).toBe('focus')
+          return ev.type === 'focus'
+        },
+      },
+    ])
+    .catch(err => {
+      expect(err instanceof AggregateError).toBe(true)
+    })
 })

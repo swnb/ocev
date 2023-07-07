@@ -5,6 +5,7 @@ export type {
   ISyncEvent,
   ObserverAccessControl,
   PublisherAccessControl,
+  EventListItem,
 } from './types'
 
 export * as errors from './errors'

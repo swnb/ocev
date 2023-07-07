@@ -8,6 +8,7 @@ import type {
   IAccessControlPublisher,
   LinkableListener,
   WaitUtilConfig,
+  EventListItem,
 } from './types'
 import { errors } from './index'
 import { CollectionMap } from './map'
@@ -235,7 +236,10 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
       }} [config={}]
    * @returns {void; }; where?: (...args: any) => boolean; }) => any}
    */
-  public waitUtil = <K extends keyof M>(type: K, config: WaitUtilConfig<Arguments<M[K]>> = {}) => {
+  public waitUtil = <K extends keyof M = keyof M>(
+    type: K,
+    config: WaitUtilConfig<Arguments<M[K]>> = {},
+  ) => {
     const { timeout = 0, cancelRef, where } = config
 
     return new Promise<Arguments<M[K]>>((res, rej) => {
@@ -274,47 +278,64 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   }
 
   /**
-   * waitUtilRace race all event
+   * waitUtilAll wait util all event success fired
+   * if any waitUtil failure , waitUtilAll will failure
+
+   * @async
+   * @template K
+   * @template EventList
+   * @param {EventList} eventList
+   * @returns {Promise<{
+      -readonly [P in keyof EventList]: Arguments<M[EventList[P]['event']]>
+    }>}
+   */
+  public waitUtilAll = async <
+    K extends keyof M = keyof M,
+    EventList extends readonly Readonly<EventListItem<M, K>>[] = readonly Readonly<
+      EventListItem<M, K>
+    >[],
+  >(
+    eventList: EventList,
+  ): Promise<{
+    -readonly [P in keyof EventList]: Arguments<M[EventList[P]['event']]>
+  }> => {
+    type Result = {
+      -readonly [P in keyof EventList]: Arguments<M[EventList[P]['event']]>
+    }
+
+    return this.#innerGroupWaitUtil(eventList, 'all') as Result
+  }
+
+  /**
+   * waitUtilRace wait util any waitUtil promise success or failure
    *
    * @async
    * @template K
-   * @param {({ event: K } & WaitUtilConfig<Arguments<M[K]>>)[]} eventList
+   * @param {EventListItem<M, K>[]} eventList
    * @returns {Promise<K extends keyof M ? Arguments<M[K]> : never>}
    */
   public waitUtilRace = async <K extends keyof M = keyof M>(
-    eventList: ({ event: K } & WaitUtilConfig<Arguments<M[K]>>)[],
+    eventList: EventListItem<M, K>[],
   ): Promise<K extends keyof M ? Arguments<M[K]> : never> => {
-    if (!Array.isArray(eventList) || eventList.length <= 0) {
-      throw Error('eventList must be array with at least one type')
-    }
-
     type Result = K extends keyof M ? Arguments<M[K]> : never
 
-    const waitUtilListWithCancelRef = eventList.map(({ event, ...config }) => {
-      const cancelRef = { current: () => {} }
-      if (config.cancelRef) {
-        // eslint-disable-next-line no-param-reassign
-        config.cancelRef.current = () => {
-          cancelRef.current?.()
-        }
-      }
-      return {
-        waitUtil: this.waitUtil(event, {
-          ...config,
-          cancelRef,
-        }),
-        cancelRef,
-      }
-    })
+    return this.#innerGroupWaitUtil(eventList, 'race') as Result
+  }
 
-    try {
-      const result = await Promise.race(waitUtilListWithCancelRef.map(({ waitUtil }) => waitUtil))
-      return result as Result
-    } finally {
-      waitUtilListWithCancelRef.forEach(({ cancelRef }) => {
-        cancelRef.current()
-      })
-    }
+  /**
+   * waitUtilAny wait util any waitUtil promise success or all failure
+   *
+   * @async
+   * @template K
+   * @param {EventListItem<M, K>[]} eventList
+   * @returns {Promise<K extends keyof M ? Arguments<M[K]> : never>}
+   */
+  public waitUtilAny = async <K extends keyof M = keyof M>(
+    eventList: EventListItem<M, K>[],
+  ): Promise<K extends keyof M ? Arguments<M[K]> : never> => {
+    type Result = K extends keyof M ? Arguments<M[K]> : never
+
+    return this.#innerGroupWaitUtil(eventList, 'any') as Result
   }
 
   /**
@@ -362,5 +383,65 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
       },
     })
     return publisher
+  }
+
+  #innerGroupWaitUtil = async <
+    K extends keyof M = keyof M,
+    EventList = readonly Readonly<EventListItem<M, K>>[],
+  >(
+    eventList: EventList,
+    promiseType: 'any' | 'race' | 'all',
+  ): Promise<unknown> => {
+    if (!Array.isArray(eventList) || eventList.length <= 0) {
+      throw Error('eventList must be array with at least one type')
+    }
+
+    const waitUtilListWithCancelRef = eventList.map(({ event, ...config }) => {
+      const cancelRef = { current: () => {} }
+      if (config.cancelRef) {
+        // eslint-disable-next-line no-param-reassign
+        config.cancelRef.current = () => {
+          cancelRef.current?.()
+        }
+      }
+
+      return {
+        // @ts-ignore
+        waitUtil: this.waitUtil(event, {
+          ...config,
+          cancelRef,
+        }),
+        cancelRef,
+      }
+    })
+
+    try {
+      switch (promiseType) {
+        case 'all': {
+          const result = await Promise.all(
+            waitUtilListWithCancelRef.map(({ waitUtil }) => waitUtil),
+          )
+          return result
+        }
+        case 'any': {
+          const result = await Promise.any(
+            waitUtilListWithCancelRef.map(({ waitUtil }) => waitUtil),
+          )
+          return result
+        }
+        case 'race': {
+          const result = await Promise.race(
+            waitUtilListWithCancelRef.map(({ waitUtil }) => waitUtil),
+          )
+          return result
+        }
+        default:
+          throw Error('wrong promise type')
+      }
+    } finally {
+      waitUtilListWithCancelRef.forEach(({ cancelRef }) => {
+        cancelRef.current()
+      })
+    }
   }
 }
