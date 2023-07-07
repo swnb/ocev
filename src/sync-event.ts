@@ -265,136 +265,48 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     })
   }
 
-  // TODO
-  /** @access private */
-  private waitUtilAll = async <EventTypeList extends (keyof M)[] | []>(
-    typeList: EventTypeList,
-    config: WaitUtilConfig<Arguments<M[EventTypeList[number]]>> = {},
-  ) => {
-    if (!Array.isArray(typeList) || typeList.length <= 0) {
-      throw Error('typeList must be array with at least one type')
-    }
-
-    type Result = {
-      -readonly [P in keyof EventTypeList]: Arguments<M[EventTypeList[P]]>
-    }
-
-    const { cancelRef: commonCancelRef, timeout = 0, where } = config
-
-    const cancelRefCollection: CancelRef[] = []
-
-    const cancelAll = () => {
-      cancelRefCollection.forEach(({ current }) => current?.())
-    }
-
-    const waitPromises = typeList.map(eventType => {
-      const currentConfig: WaitUtilConfig<any> = {
-        cancelRef: undefined,
-        where,
-      }
-
-      if (commonCancelRef && typeof commonCancelRef === 'object') {
-        const currentCancelRef = Object.seal({ current: () => {} })
-        cancelRefCollection.push(currentCancelRef)
-        currentConfig.cancelRef = currentCancelRef
-      }
-
-      return this.waitUtil(eventType, currentConfig)
-    })
-
-    if (commonCancelRef) {
-      commonCancelRef.current = cancelAll
-    }
-
-    return new Promise<Result>((res, rej) => {
-      let timeID: number
-      if (timeout) {
-        timeID = setTimeout(() => {
-          rej(errors.TimeoutError)
-          cancelAll()
-        }, timeout) as unknown as number
-      }
-
-      Promise.all(waitPromises)
-        .then(value => {
-          res(value as Result)
-        })
-        .catch(error => {
-          rej(error)
-          // if any promise reject , cancelALl the other promise
-          cancelAll()
-        })
-        .finally(() => {
-          if (timeID) clearTimeout(timeID)
-        })
-    })
-  }
-
   /**
-   * Description placeholder
-   * @access private
+   * waitUtilRace race all event
+   *
+   * @async
    * @template K
-   * @param {K[]} typeList the eventName list
-   * @param {{
-        timeout?: number default set to zero, when large than zero , promise will reject errors.TimeoutError
-        cancelRef?: { current: VoidFunction } set current field ,when call cancelRef.current(), promise will throw errors.CancelError
-      }} [config={}]
-   * @returns {Promise}
+   * @param {({ event: K } & WaitUtilConfig<Arguments<M[K]>>)[]} eventList
+   * @returns {Promise<K extends keyof M ? Arguments<M[K]> : never>}
    */
-  // TODO
-  private waitUtilRace = <K extends keyof M>(
-    typeList: K[],
-    config: WaitUtilConfig<any> = {},
+  public waitUtilRace = async <K extends keyof M = keyof M>(
+    eventList: ({ event: K } & WaitUtilConfig<Arguments<M[K]>>)[],
   ): Promise<K extends keyof M ? Arguments<M[K]> : never> => {
-    const { timeout = 0, cancelRef } = config
-
-    if (!Array.isArray(typeList) || typeList.length <= 0) {
-      throw Error('typeList must be array with at least one type')
+    if (!Array.isArray(eventList) || eventList.length <= 0) {
+      throw Error('eventList must be array with at least one type')
     }
 
     type Result = K extends keyof M ? Arguments<M[K]> : never
-    return new Promise<Result>((res, rej) => {
-      let timeID: number | undefined
-      let emitIndex = -1
 
-      const callbackList = typeList.map((type, currentIndex) => {
-        const callback = (...args: any[]) => {
-          res(args as any)
-
-          emitIndex = currentIndex
-          callbackList.forEach((fn, index) => {
-            if (currentIndex === index) return
-
-            this.off(typeList[index], fn as any)
-          })
-
-          if (timeID !== undefined) clearTimeout(timeID)
+    const waitUtilListWithCancelRef = eventList.map(({ event, ...config }) => {
+      const cancelRef = { current: () => {} }
+      if (config.cancelRef) {
+        // eslint-disable-next-line no-param-reassign
+        config.cancelRef.current = () => {
+          cancelRef.current?.()
         }
-        this.on(type, callback as any)
-        return callback
-      })
-
-      const cancel = () => {
-        rej(errors.CancelError)
-        callbackList.forEach((fn, index) => {
-          if (index === emitIndex) return
-
-          this.off(typeList[index], fn as any)
-        })
-
-        if (timeID !== undefined) clearTimeout(timeID)
       }
-
-      if (timeout > 0) {
-        timeID = setTimeout(() => {
-          rej(errors.TimeoutError)
-          cancel()
-        }, timeout) as unknown as number
+      return {
+        waitUtil: this.waitUtil(event, {
+          ...config,
+          cancelRef,
+        }),
+        cancelRef,
       }
-
-      // eslint-disable-next-line no-param-reassign
-      if (cancelRef) cancelRef.current = cancel
     })
+
+    try {
+      const result = await Promise.race(waitUtilListWithCancelRef.map(({ waitUtil }) => waitUtil))
+      return result as Result
+    } finally {
+      waitUtilListWithCancelRef.forEach(({ cancelRef }) => {
+        cancelRef.current()
+      })
+    }
   }
 
   /**
