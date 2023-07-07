@@ -93,23 +93,23 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
 
   /**
    *
-   * @param type  event type , same as emit event type
-   * @param handler  callback will run when emit same event type
+   * @param event  event name , same as emit event name
+   * @param handler  callback will run when emit same event name
    * @return {VoidFunction} function off handler
    */
-  public on = <K extends keyof M>(type: K, handler: M[K]): LinkableListener<M> => {
-    const handlersSet = this.#handlerMap.get(type)
+  public on = <K extends keyof M>(event: K, handler: M[K]): LinkableListener<M> => {
+    const handlersSet = this.#handlerMap.get(event)
     if (handlersSet) {
       handlersSet.add(handler)
     } else {
       const newHandlersSet = new Set<M[K]>()
       newHandlersSet.add(handler)
-      this.#handlerMap.set(type, newHandlersSet)
+      this.#handlerMap.set(event, newHandlersSet)
     }
 
     this.#listenerCount += 1
 
-    const cancelFunction = this.off.bind(null, type, handler)
+    const cancelFunction = this.off.bind(null, event, handler)
 
     return createListenerLinker(this.on, this.once, [cancelFunction])
   }
@@ -119,7 +119,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
    * @returns
    */
   public any = <K extends keyof M = keyof M>(
-    handler: (type: K, ...args: Arguments<M[K]>) => void,
+    handler: (event: K, ...args: Arguments<M[K]>) => void,
   ) => {
     if (!this.#anyHandlerSet.has(handler)) {
       this.#anyHandlerSet.add(handler)
@@ -134,37 +134,37 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   }
 
   /**
-   * @param type event type
+   * @param event event name
    * @param handler  callback only run one time
    * @returns
    */
-  public once = <K extends keyof M>(type: K, handler: M[K]): LinkableListener<M> => {
+  public once = <K extends keyof M>(event: K, handler: M[K]): LinkableListener<M> => {
     const handlerWrapper = (...arg: Arguments<M[K]>) => {
       // @ts-ignore
-      this.off(type, handler)
+      this.off(event, handler)
       // @ts-ignore
       handler(...arg)
     }
-    handlerWrapper.type = type
+    handlerWrapper.type = event
     // @ts-ignore
-    this.on(type, handlerWrapper)
+    this.on(event, handlerWrapper)
     // @ts-ignore
     this.#onceHandlerWrapperMap.set(handler, handlerWrapper)
 
-    const cancelFunction = this.off.bind(null, type, handler)
+    const cancelFunction = this.off.bind(null, event, handler)
 
     return createListenerLinker(this.on, this.once, [cancelFunction])
   }
 
   /**
    * unregister all callback
-   * @param type
+   * @param event event name
    * @returns {this}
    */
-  public offAll = <K extends keyof M>(type?: K): this => {
-    if (type) {
+  public offAll = <K extends keyof M>(event?: K): this => {
+    if (event) {
       // FIXME memory leak
-      this.#handlerMap.set(type, new Set())
+      this.#handlerMap.set(event, new Set())
     } else {
       this.#handlerMap.clear()
       this.#onceHandlerWrapperMap.clear()
@@ -176,8 +176,8 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     return this
   }
 
-  public off = <K extends keyof M>(type: K, handler: M[K]) => {
-    const handlers = this.#handlerMap.get(type)
+  public off = <K extends keyof M>(event: K, handler: M[K]) => {
+    const handlers = this.#handlerMap.get(event)
     if (handlers) {
       const successDeleted = handlers.delete(handler)
       if (successDeleted) {
@@ -194,13 +194,13 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     return this
   }
 
-  // emit event type and some arguments
+  // emit event and some arguments
   // all register will call with the arguments
-  public emit = <K extends keyof M>(type: K, ...arg: Parameters<M[K]>) => {
+  public emit = <K extends keyof M>(event: K, ...arg: Parameters<M[K]>) => {
     // 一段时间内不可以监听事件
     if (this.#isInterceptEmit) return this
 
-    const handlers = this.#handlerMap.get(type)
+    const handlers = this.#handlerMap.get(event)
     if (handlers) {
       handlers.forEach(handler => {
         try {
@@ -213,7 +213,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     this.#anyHandlerSet.forEach(handler => {
       try {
         // @ts-ignore
-        handler(type, ...arg)
+        handler(event, ...arg)
       } catch {}
     })
 
@@ -221,14 +221,14 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   }
 
   /**
-   * waitUil return promise which will resolve util the event type is emit
+   * waitUil return promise which will resolve util the event name is emit
    * cancelRef will set current property cancel function
    * cancelRef is design to avid memory leak
    * you should call cancelRef.current() when you don't need to await return promise anymore
    * waitUtil will throw cancel Error when cancelRef.current is called
-   * where select the emited value, is where return false, the event will be ignored
+   * if method 'where' return false, the event will be ignored
    * @template K
-   * @param {K} type
+   * @param {K} event event name
    * @param {{
         timeout?: number default to 0
         cancelRef?: { current: () => void }
@@ -237,7 +237,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
    * @returns {void; }; where?: (...args: any) => boolean; }) => any}
    */
   public waitUtil = <K extends keyof M = keyof M>(
-    type: K,
+    event: K,
     config: WaitUtilConfig<Arguments<M[K]>> = {},
   ) => {
     const { timeout = 0, cancelRef, where } = config
@@ -254,15 +254,15 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
         if (timeID !== undefined) clearTimeout(timeID)
         res(args)
         // @ts-ignore
-        this.off(type, callback)
+        this.off(event, callback)
       }
       // @ts-ignore
-      this.on(type, callback)
+      this.on(event, callback)
       const cancel = () => {
         if (resolved) return
         if (timeID !== undefined) clearTimeout(timeID)
         // @ts-ignore
-        this.off(type, callback)
+        this.off(event, callback)
         rej(errors.CancelError)
       }
       // eslint-disable-next-line no-param-reassign
@@ -271,7 +271,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
         timeID = setTimeout(() => {
           rej(errors.TimeoutError)
           // @ts-ignore
-          this.off(type, callback)
+          this.off(event, callback)
         }, timeout) as unknown as number
       }
     })
