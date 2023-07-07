@@ -7,14 +7,11 @@ import type {
   PublisherAccessControl,
   IAccessControlPublisher,
   LinkableListener,
-  CancelRef,
   WaitUtilConfig,
 } from './types'
 import { errors } from './index'
 import { CollectionMap } from './map'
 import { createListenerLinker } from './linkable-listener'
-
-type Args<T> = T extends (...args: infer A) => any ? A : never
 
 export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   #handlerMap = new CollectionMap<{
