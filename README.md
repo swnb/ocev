@@ -26,10 +26,10 @@ in `react` , you have to write code like this to bind event
 useEffect(() => {
   const callback = () => {}
 
-  target.addEventListner("event", callback)
+  target.addEventListener("event", callback)
 
   return () => {
-    target.removeEvenListner("event", callback)
+    target.removeEventListener("event", callback)
   }
 }, [target])
 ```
@@ -39,16 +39,16 @@ if you want to bind multiple events, you will have to do this
 ```tsx example.tsx
 useEffect(() => {
   const callback1 = () => {}
-  target.addEventListner("event1", callback1)
+  target.addEventListener("event1", callback1)
 
   const callback2 = () => {}
-  target.addEventListner("event2", callback2)
+  target.addEventListener("event2", callback2)
 
   // ....
 
   return () => {
-    target.removeEvenListner("event1", callback1)
-    target.removeEvenListner("event2", callback2)
+    target.removeEventListener("event1", callback1)
+    target.removeEventListener("event2", callback2)
     // ....
   }
 }, [target])
@@ -57,10 +57,10 @@ useEffect(() => {
 when you use `@swnb/event`
 
 ```tsx example.tsx
-import { LazyWebEventProxyAgent } from "@swnb/event"
+import { EventProxy } from "@swnb/event"
 useEffect(
   () =>
-    LazyWebEventProxyAgent.new(target)
+    EventProxy.new(target)
       .on("event1", (...args) => {}) // support type hint !
       .on("event2", (...args) => {}) // support type hint !
       .on("event3", (...args) => {}),// support type hint !
@@ -99,12 +99,12 @@ async function connect(url: string, timeout: number) {
 when you use `@swnb/event`
 
 ```typescript websocket.ts
-import { LazyWebEventProxyAgent } from "@swnb/event"
+import { EventProxy } from "@swnb/event"
 
 async function connect(url: string, timeout: number) {
   const ws = new WebSocket(url)
 
-  await LazyWebEventProxyAgent.new(ws).waitUtil("open", { timeout }) // support type hint !
+  await EventProxy.new(ws).waitUtil("open", { timeout }) // support type hint !
 
   return ws
 }
@@ -113,12 +113,12 @@ async function connect(url: string, timeout: number) {
 consider a more complex scenario where you create a **webrtc** connection and wait for the connection to 'connected'
 
 ```typescript rtc.ts
-import { LazyWebEventProxyAgent } from "@swnb/event"
+import { EventProxy } from "@swnb/event"
 
 async function connect(timeout: number) {
   const connection = new RTCPeerConnection()
 
-  await LazyWebEventProxyAgent.new(connection).waitUtil(
+  await EventProxy.new(connection).waitUtil(
     "connectionstatechange",
     {
       timeout,
@@ -138,9 +138,9 @@ use 'where' to select the 'connectionState' you want
 if you want to know what events are fired when 'video' is played, consider writing this
 
 ```tsx video.ts
-import { WebEventProxyAgent } from "@swnb/event"
+import { EventProxy } from "@swnb/event"
 // support type hint !
-WebEventProxyAgent.new(videoDom).any((eventName, ...args) => {
+EventProxy.new(videoDom, { proxyAllEvent: true }).any((eventName, ...args) => {
   console.log(eventName)
 })
 ```
@@ -148,13 +148,13 @@ WebEventProxyAgent.new(videoDom).any((eventName, ...args) => {
 in `react`
 
 ```tsx video.tsx
-import { WebEventProxyAgent } from "@swnb/event"
+import { EventProxy } from "@swnb/event"
 import { useEffect, useRef } from "react"
 
 function Video() {
   const videoDomRef = useRef<HTMLVideoElement>(null)
   useEffect(() => {
-    return WebEventProxyAgent.new(videoDomRef.current!).any(
+    return EventProxy.new(videoDomRef.current!).any(
       (eventName, ...args) => {
         console.log(eventName)
       }
@@ -174,7 +174,7 @@ open the console and you will see the order and time of all the 'video' events
 
 ## concept
 
-there are three main class in `@swnb/event`, `SyncEvent`, `LazyWebEventProxyAgent` , `WebEventProxyAgent`
+there are two main class in `@swnb/event`, `SyncEvent`, `EventProxy`
 
 ### SyncEvent
 
@@ -232,7 +232,7 @@ eventBus
 emit event with argument
 
 ```typescript
-eventBus.dispatch('ev1', "1", 2)
+eventBus.emit('ev1', "1", 2)
 ```
 
 cancel register callback
@@ -268,7 +268,7 @@ use method `waitUtil` instead of method `on`
 
 ```typescript
 // type hint support
-const [arg1, arg2] = await eventBus.waitUtil('ev1') // this code block util 'ev1' dispatch ,
+const [arg1, arg2] = await eventBus.waitUtil('ev1') // this code block util 'ev1' emit ,
 ```
 
 set timeout for `waitUtil`
@@ -300,43 +300,42 @@ select condition
   // waitUtil resolve only if arg2 > 1000
 ```
 
-### LazyWebEventProxyAgent
+### EventProxy
 
-`LazyWebEventProxyAgent` has all the functionality of `SyncEvent`
+`EventProxy` has all the functionality of `SyncEvent`
 
 on top of that, you can use it to bind some web objects, in `react` you can do that with no performance cost
 
 ```typescript
-import { LazyWebEventProxyAgent } from "@swnb/event"
+import { EventProxy } from "@swnb/event"
 
 useEffect(() => {
-    return LazyWebEventProxyAgent.new(window)
+    return EventProxy.new(window)
       .on("click", (ev) => {}) // support type hint
       .on("resize", (ev) => {})
       .on("contextmenu", (ev) => {})
   }, [])
 ```
 
-### WebEventProxyAgent
+if you want to watch all event for element , set options `proxyAllEvent` to `true` to registers all events, you needs to call `destroy` to clean up all registered events otherwise it will cause memory leak
 
-the only difference between `WebEventProxyAgent` and `LazyWebEventProxyAgent` is `WebEventProxyAgent` registers all events in the `constructor` so you can watch all events fire using method 'any', `WebEventProxyAgent` needs to call `destroy` to clean up all registered events after it finishes its task
+use `EventProxy` to observe all events triggered in the internal `video`
 
-> initializing 'WebEventProxyAgent' is not that cheap, it's better to cache it
+> initializing `EventProxy` with `proxyAllEvent` is not that cheap, it's better to cache it
 
-use `WebEventProxyAgent` to observe all events triggered in the internal `video`
-
-```typescript
-import { WebEventProxyAgent } from "@swnb/event"
+```tsx video.tsx
+import { EventProxy } from "@swnb/event"
 import { useEffect, useRef } from "react"
 
 function Video() {
   const videoDomRef = useRef<HTMLVideoElement>(null)
   useEffect(() => {
-    return WebEventProxyAgent.new(videoDomRef.current!).any(
+    const eventProxy = EventProxy.new(videoDomRef.current!, { proxyAllEvent: true }).any(
       (eventName, ...args) => {
         console.log(eventName)
       }
     )
+    return eventProxy.destroy
   }, [])
 
   const url = "" // your  video  link
