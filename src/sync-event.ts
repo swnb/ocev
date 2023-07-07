@@ -61,6 +61,17 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     return this.#publisher
   }
 
+  /**
+   * get listener count
+   *
+   * @public
+   * @readonly
+   * @type {number}
+   */
+  public get listenerCount() {
+    return this.#listenerCount
+  }
+
   // factory pattern
   static new<M extends HandlerMap>() {
     return new SyncEvent<M>()
@@ -354,9 +365,5 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
       },
     })
     return publisher
-  }
-
-  public get listenerCount() {
-    return this.#listenerCount
   }
 }
