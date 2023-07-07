@@ -182,12 +182,12 @@ test('test sync event waitUtil', async () => {
   }
 })
 
-test('test sync event bind for window', async () => {
-  let windowEventProxyAgent = EventProxy.new(window)
+test('test sync event bind for global', async () => {
+  let globalEventProxyAgent = EventProxy.new(global)
 
   let count = 0
 
-  const p = windowEventProxyAgent.waitUtil('resize', {
+  const p = globalEventProxyAgent.waitUtil('resize', {
     timeout: 3000,
     where(ev) {
       expect(ev.type).toBe('resize')
@@ -209,15 +209,15 @@ test('test sync event bind for window', async () => {
 
   expect(count).toBe(2)
 
-  windowEventProxyAgent = EventProxy.new(window, { proxyAllEvent: true })
+  globalEventProxyAgent = EventProxy.new(global, { proxyAllEvent: true })
 
   let clickCount = 0
 
-  windowEventProxyAgent.on('click', () => {
+  globalEventProxyAgent.on('click', () => {
     clickCount += 1
   })
 
-  windowEventProxyAgent.any((ev, ...args) => {
+  globalEventProxyAgent.any((ev, ...args) => {
     if (ev === 'click') {
       clickCount += 1
     }
@@ -229,7 +229,7 @@ test('test sync event bind for window', async () => {
 })
 
 test('test waitUtilAll', async () => {
-  const windowEventProxyAgent = EventProxy.new(window)
+  const globalEventProxyAgent = EventProxy.new(global)
 
   setTimeout(() => {
     global.dispatchEvent(new Event('click'))
@@ -238,7 +238,7 @@ test('test waitUtilAll', async () => {
     }, 1000)
   }, 1000)
 
-  const [ev1, ev2] = await windowEventProxyAgent.waitUtilAll([
+  const [ev1, ev2] = await globalEventProxyAgent.waitUtilAll([
     {
       event: 'click',
       timeout: 1500,
@@ -259,13 +259,13 @@ test('test waitUtilAll', async () => {
 })
 
 test('test waitUtilRace', async () => {
-  const windowEventProxyAgent = EventProxy.new(window)
+  const globalEventProxyAgent = EventProxy.new(global)
 
   setTimeout(() => {
     global.dispatchEvent(new Event('click'))
   }, 20)
 
-  const [ev] = await windowEventProxyAgent.waitUtilRace([
+  const [ev] = await globalEventProxyAgent.waitUtilRace([
     {
       event: 'click',
       timeout: 500,
@@ -284,13 +284,13 @@ test('test waitUtilRace', async () => {
 })
 
 test('test waitUtilAny', async () => {
-  const windowEventProxyAgent = EventProxy.new(window)
+  const globalEventProxyAgent = EventProxy.new(global)
 
   setTimeout(() => {
     global.dispatchEvent(new Event('click'))
   }, 1000)
 
-  const result1 = await windowEventProxyAgent.waitUtilAny([
+  const result1 = await globalEventProxyAgent.waitUtilAny([
     {
       event: 'click',
       timeout: 1500,
@@ -311,7 +311,7 @@ test('test waitUtilAny', async () => {
     global.dispatchEvent(new Event('focus'))
   }, 1000)
 
-  await windowEventProxyAgent
+  await globalEventProxyAgent
     .waitUtilAny([
       {
         event: 'click',

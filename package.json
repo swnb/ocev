@@ -10,7 +10,7 @@
   "scripts": {
     "build": "tsc --build --clean  && tsc --build tsconfig.json && npx tsc-alias",
     "prepublishOnly": "npm run build",
-    "test": "jest",
+    "test": "rm -rf ./dist/ && jest",
     "postversion": "git push && git push --tags"
   },
   "repository": {
