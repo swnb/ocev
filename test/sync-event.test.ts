@@ -238,3 +238,26 @@ test('test sync event bind for window', async () => {
     })(),
   ])
 })
+
+test('test waitUtilRace', async () => {
+  const windowEventProxyAgent = EventProxy.new(window)
+
+  await Promise.all([
+    windowEventProxyAgent.waitUtil('resize', {
+      timeout: 2000,
+      where(ev) {
+        expect(ev.type).toBe('resize')
+        return window.innerWidth === 191
+      },
+    }),
+    (async () => {
+      for (let i = 0; i < 2; i++) {
+        global.innerWidth = 190 + i
+        global.dispatchEvent(new Event('resize'))
+        await new Promise<void>(r => {
+          setTimeout(r, 1000)
+        })
+      }
+    })(),
+  ])
+})
