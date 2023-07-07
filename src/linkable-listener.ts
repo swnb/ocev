@@ -1,4 +1,4 @@
-import { LinkableListener } from './types'
+import type { LinkableListener } from './types'
 
 export function createListenerLinker<M>(
   createOnListener: <K extends keyof M>(key: K, callback: M[K]) => VoidFunction,

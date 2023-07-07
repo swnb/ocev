@@ -1,16 +1,11 @@
+import type { HandlerMap, ISyncEvent, LinkableListener } from './types'
 import { createListenerLinker } from './linkable-listener'
 import { SyncEvent } from './sync-event'
-import { HandlerMap, ISyncEvent, LinkableListener } from './types'
 
 export class InnerHookAbleSyncEvent<M extends HandlerMap>
   extends SyncEvent<M>
   implements ISyncEvent<M>
 {
-  // factory pattern
-  static new<M extends HandlerMap>() {
-    return new InnerHookAbleSyncEvent<M>()
-  }
-
   constructor() {
     super()
 
@@ -39,5 +34,10 @@ export class InnerHookAbleSyncEvent<M extends HandlerMap>
 
       return this
     }
+  }
+
+  // factory pattern
+  static new<M extends HandlerMap>() {
+    return new InnerHookAbleSyncEvent<M>()
   }
 }
