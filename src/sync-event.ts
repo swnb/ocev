@@ -246,9 +246,21 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
       let timeID: number | undefined
       let resolved = false
 
-      const callback = (...args: any) => {
+      const callback = async (...args: any) => {
         // only if where return
-        if (where && !where(...args)) return
+
+        if (where) {
+          try {
+            const isValid = where(...args)
+            if (!isValid) return
+          } catch (error) {
+            rej(error)
+            if (timeID !== undefined) clearTimeout(timeID)
+            // @ts-ignore
+            this.off(event, callback)
+            return
+          }
+        }
 
         resolved = true
         if (timeID !== undefined) clearTimeout(timeID)
