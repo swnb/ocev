@@ -154,7 +154,7 @@ import { useEffect, useRef } from "react"
 function Video() {
   const videoDomRef = useRef<HTMLVideoElement>(null)
   useEffect(() => {
-    return EventProxy.new(videoDomRef.current!).any(
+    return EventProxy.new(videoDomRef.current!, { proxyAllEvent: true }).any(
       (eventName, ...args) => {
         console.log(eventName)
       }
