@@ -105,12 +105,12 @@ export class EventProxy<T extends CanAddEventListener>
     return this.#element
   }
 
-  get listenerCount() {
-    return this.#syncEvent.listenerCount
-  }
-
   static new<T extends CanAddEventListener>(element: T, options?: Options) {
     return new EventProxy(element, options)
+  }
+
+  listenerCount = () => {
+    return this.#syncEvent.listenerCount()
   }
 
   on: ISyncEvent<UnionEventHandler<T, GetAddEventListenerKeys<T>>>['on'] = (type, callback) => {
