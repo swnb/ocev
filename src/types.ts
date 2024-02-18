@@ -6,6 +6,7 @@ export type WaitUtilConfig<Args extends any[]> = {
   timeout?: number
   cancelRef?: CancelRef
   where?: (...args: Args) => boolean
+  mapToError?: (...args: Args) => any
 }
 
 export type EventListItem<M extends HandlerMap, K extends keyof M> = K extends keyof M
@@ -124,4 +125,21 @@ export interface LinkableListener<M> {
   (): void
   once: <K extends keyof M>(type: K, handler: M[K]) => LinkableListener<M>
   on: <K extends keyof M>(type: K, handler: M[K]) => LinkableListener<M>
+}
+
+export type ExtractHandlerMapArgumentsFromEventListItem<
+  M extends HandlerMap,
+  K extends keyof M,
+  EventList extends readonly (Readonly<EventListItem<M, K>> | K)[] = readonly (
+    | Readonly<EventListItem<M, K>>
+    | K
+  )[],
+> = {
+  -readonly [P in keyof EventList]: Arguments<
+    M[EventList[P] extends K
+      ? EventList[P]
+      : EventList[P] extends EventListItem<M, K>
+      ? EventList[P]['event']
+      : never]
+  >
 }
