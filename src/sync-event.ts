@@ -10,10 +10,13 @@ import type {
   WaitUtilConfig,
   EventListItem,
   ExtractHandlerMapArgumentsFromEventListItem,
+  EventStreamStrategy,
+  WaitUtilCommonReturnValue,
 } from './types'
 import { errors } from './index'
 import { CollectionMap } from './map'
 import { createListenerLinker } from './linkable-listener'
+import { RingBuffer } from './ring-buffer'
 
 export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   #handlerMap = new CollectionMap<{
@@ -341,8 +344,8 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
    */
   public waitUtilRace = async <K extends keyof M = keyof M>(
     eventList: (EventListItem<M, K> | K)[],
-  ): Promise<{ event: K; value: K extends keyof M ? Arguments<M[K]> : never }> => {
-    type Result = Promise<{ event: K; value: K extends keyof M ? Arguments<M[K]> : never }>
+  ): Promise<WaitUtilCommonReturnValue<M, K>> => {
+    type Result = Promise<WaitUtilCommonReturnValue<M, K>>
 
     return this.#innerGroupWaitUtil(this.#wrapEventList(eventList), 'race') as Result
   }
@@ -357,10 +360,94 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
    */
   public waitUtilAny = async <K extends keyof M = keyof M>(
     eventList: (EventListItem<M, K> | K)[],
-  ): Promise<{ event: K; value: K extends keyof M ? Arguments<M[K]> : never }> => {
-    type Result = Promise<{ event: K; value: K extends keyof M ? Arguments<M[K]> : never }>
+  ): Promise<WaitUtilCommonReturnValue<M, K>> => {
+    type Result = Promise<WaitUtilCommonReturnValue<M, K>>
 
     return this.#innerGroupWaitUtil(this.#wrapEventList(eventList), 'any') as Result
+  }
+
+  /**
+   * create stream producer with asyncIterator support
+   * first param is array of event you want to subscribe
+   * second param is strategy when stream is full filled
+   * if strategy.capacity is large than zero
+   * then strategy will work, when event queue's length is equal to capacity
+   * producer will either 'drop' or 'replace' new event,
+   *'replace' means shift the head of queue and push at end of queue which remain length the same
+   *
+   * @param eventList
+   * @param strategy
+   * @returns
+   */
+  public createEventStreamAsyncIterator = <K extends keyof M = keyof M>(
+    eventList: K[],
+    strategy: EventStreamStrategy = { capacity: 0, strategyWhenFull: 'replace' },
+  ) => {
+    if (!(typeof Symbol === 'function' && Symbol.asyncIterator)) {
+      throw Error("env don't support Symbol.asyncIterator")
+    }
+
+    if (typeof strategy?.capacity !== 'number' || strategy?.capacity < 0) {
+      throw Error('strategy.capacity must be non-negative integer')
+    }
+
+    if (!['drop', 'replace'].includes(strategy?.strategyWhenFull)) {
+      throw Error('strategy.capacity must be either `drop` or `replace`')
+    }
+
+    let handler: {
+      getValue: () => Promise<WaitUtilCommonReturnValue<M, K>>
+      cancel: () => Promise<void>
+    }
+    if (strategy.capacity) {
+      handler = this.#createEventStreamAsyncIterWithCapacity(eventList, strategy)
+    } else {
+      handler = this.#createEventStreamAsyncIterWithoutCapacity(eventList)
+    }
+
+    return {
+      [Symbol.asyncIterator]() {
+        return {
+          async next() {
+            const value = await handler.getValue()
+            return { value, done: false }
+          },
+          async return() {
+            await handler.cancel()
+            return { value: null as unknown as WaitUtilCommonReturnValue<M, K>, done: true }
+          },
+        }
+      },
+    }
+  }
+
+  /**
+   * createEventReadableStream is almost the same as createEventStreamAsyncIterator, see details of createEventStreamAsyncIterator
+   *
+   * @param eventList
+   * @param strategy
+   * @returns
+   */
+  public createEventReadableStream = <K extends keyof M = keyof M>(
+    eventList: K[],
+    strategy: EventStreamStrategy = { capacity: 0, strategyWhenFull: 'replace' },
+  ) => {
+    if (typeof ReadableStream !== 'function') {
+      throw Error("env don't support ReadableStream")
+    }
+
+    if (typeof strategy?.capacity !== 'number' || strategy?.capacity < 0) {
+      throw Error('strategy.capacity must be non-negative integer')
+    }
+
+    if (!['drop', 'replace'].includes(strategy?.strategyWhenFull)) {
+      throw Error('strategy.capacity must be either `drop` or `replace`')
+    }
+
+    if (strategy.capacity) {
+      return this.#createEventReadableStreamWithCapacity(eventList, strategy)
+    }
+    return this.#createEventReadableStreamWithoutCapacity(eventList)
   }
 
   /**
@@ -503,5 +590,159 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
         cancelRef.current()
       })
     }
+  }
+
+  #createEventStreamAsyncIterWithCapacity = <K extends keyof M = keyof M>(
+    eventList: K[],
+    strategy: EventStreamStrategy = { capacity: 0, strategyWhenFull: 'replace' },
+  ) => {
+    const ringBuffer = new RingBuffer<WaitUtilCommonReturnValue<M, K>>(strategy.capacity)
+
+    const cancel = eventList.reduce((pre, event: K) => {
+      const callback = ((...args: Arguments<M[K]>) => {
+        const cell = { event, value: args } as WaitUtilCommonReturnValue<M, K>
+        const success = ringBuffer.tryWrite(cell)
+        if (!success && strategy.strategyWhenFull == 'replace') {
+          ringBuffer.read()
+          if (!ringBuffer.tryWrite(cell)) {
+            throw Error('unreachable')
+          }
+        }
+      }) as M[K]
+
+      if (!pre) {
+        return this.on(event, callback)
+      }
+      return pre.on(event, callback)
+    }, null as null | LinkableListener<M>)
+
+    return {
+      async getValue() {
+        const value = await ringBuffer.read()
+        return value
+      },
+      async cancel() {
+        cancel?.()
+      },
+    }
+  }
+
+  #createEventStreamAsyncIterWithoutCapacity = <K extends keyof M = keyof M>(eventList: K[]) => {
+    const queue: WaitUtilCommonReturnValue<M, K>[] = []
+
+    const cancel = eventList.reduce((pre, event: K) => {
+      const callback = ((...args: Arguments<M[K]>) => {
+        queue.push({ event, value: args } as WaitUtilCommonReturnValue<M, K>)
+      }) as M[K]
+      if (!pre) {
+        return this.on(event, callback)
+      }
+      return pre.on(event, callback)
+    }, null as null | LinkableListener<M>)
+
+    const { waitUtilRace } = this
+
+    return {
+      async getValue() {
+        while (queue.length === 0) {
+          await waitUtilRace(eventList)
+        }
+        const value = queue.shift()!
+        return value
+      },
+      async cancel() {
+        cancel?.()
+      },
+    }
+  }
+
+  #createEventReadableStreamWithCapacity = <K extends keyof M = keyof M>(
+    eventList: K[],
+    strategy: EventStreamStrategy = { capacity: 0, strategyWhenFull: 'replace' },
+  ) => {
+    const ringBuffer = new RingBuffer<WaitUtilCommonReturnValue<M, K>>(strategy.capacity)
+
+    let cancel: VoidFunction | null = null
+
+    const { on } = this
+
+    const stream = new ReadableStream<WaitUtilCommonReturnValue<M, K>>({
+      start() {
+        cancel = eventList.reduce((pre, event: K) => {
+          const callback = ((...args: Arguments<M[K]>) => {
+            const cell = {
+              event,
+              value: args,
+            } as WaitUtilCommonReturnValue<M, K>
+            const success = ringBuffer.tryWrite(cell)
+            if (!success && strategy.strategyWhenFull == 'replace') {
+              ringBuffer.read()
+              if (!ringBuffer.tryWrite(cell)) {
+                throw Error('unreachable')
+              }
+            }
+          }) as M[K]
+
+          if (!pre) {
+            return on(event, callback)
+          }
+
+          return pre.on(event, callback)
+        }, null as null | LinkableListener<M>)
+      },
+      pull(controller) {
+        if (controller.desiredSize === null || controller.desiredSize > 0) {
+          const { value, ok } = ringBuffer.tryRead()
+          if (ok) {
+            controller.enqueue(value)
+          }
+        }
+      },
+      cancel() {
+        cancel?.()
+      },
+    })
+
+    return stream
+  }
+
+  #createEventReadableStreamWithoutCapacity = <K extends keyof M = keyof M>(eventList: K[]) => {
+    const queue: WaitUtilCommonReturnValue<M, K>[] = []
+
+    let cancel: VoidFunction | null
+
+    const { on } = this
+
+    const stream = new ReadableStream<WaitUtilCommonReturnValue<M, K>>({
+      start() {
+        cancel = eventList.reduce((pre, event: K) => {
+          const callback = ((...args: Arguments<M[K]>) => {
+            queue.push({ event, value: args } as WaitUtilCommonReturnValue<M, K>)
+          }) as M[K]
+          if (!pre) {
+            return on(event, callback)
+          }
+          return pre.on(event, callback)
+        }, null as null | LinkableListener<M>)
+      },
+      pull(controller) {
+        if (!queue.length) return
+
+        let size = queue.length
+
+        if (controller.desiredSize) {
+          size = Math.min(controller.desiredSize, size)
+        }
+
+        for (let i = 0; i < size; i++) {
+          controller.enqueue(queue.shift()!)
+        }
+      },
+      cancel() {
+        cancel?.()
+      },
+    })
+
+    return stream
   }
 }

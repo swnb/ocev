@@ -143,3 +143,12 @@ export type ExtractHandlerMapArgumentsFromEventListItem<
       : never]
   >
 }
+
+export type WaitUtilCommonReturnValue<M, K extends keyof M> = K extends keyof M
+  ? { event: K; value: Arguments<M[K]> }
+  : never
+
+export type EventStreamStrategy = {
+  capacity: number // is capacity is zero , means Infinity;
+  strategyWhenFull: 'drop' | 'replace'
+}

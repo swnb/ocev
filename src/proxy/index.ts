@@ -38,6 +38,10 @@ export class EventProxy<T extends CanAddEventListener>
 
   waitUtilAny = this.#syncEvent.waitUtilAny
 
+  createEventReadableStream = this.#syncEvent.createEventReadableStream
+
+  createEventStreamAsyncIterator = this.#syncEvent.createEventStreamAsyncIterator
+
   createObserver = this.#syncEvent.createObserver
 
   any = this.#syncEvent.any
