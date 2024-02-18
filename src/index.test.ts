@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import { EventProxy, SyncEvent } from '..'
+import { EventProxy, SyncEvent } from '.'
 
 const { TextDecoder, TextEncoder } = require('node:util')
 const { ReadableStream } = require('web-streams-polyfill/ponyfill/es2018')
