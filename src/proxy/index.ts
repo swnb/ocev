@@ -9,7 +9,10 @@ export interface CanAddEventListener {
 
 type Options = {
   proxyAllEvent?: boolean
+  addEventListenerOptions?: AddEventListenerOptions | boolean
 }
+
+document.createElement('div').addEventListener('abort', () => {})
 
 export class EventProxy<T extends CanAddEventListener>
   implements
@@ -18,6 +21,8 @@ export class EventProxy<T extends CanAddEventListener>
       'publisher' | 'emit' | 'createPublisher' | 'observer' | 'any'
     >
 {
+  #addEventListenerOptions?: AddEventListenerOptions | boolean
+
   #syncEvent = InnerHookAbleSyncEvent.new<UnionEventHandler<T, GetAddEventListenerKeys<T>>>()
 
   #proxyAllEvent = false
@@ -63,7 +68,9 @@ export class EventProxy<T extends CanAddEventListener>
   #removeEvenListenerQueue: (readonly [string, (...args: any[]) => void])[] = []
 
   constructor(element: T, options: Options = {}) {
-    const { proxyAllEvent = false } = options
+    const { proxyAllEvent = false, addEventListenerOptions } = options
+
+    this.#addEventListenerOptions = addEventListenerOptions
 
     this.#element = element
 
@@ -167,7 +174,7 @@ export class EventProxy<T extends CanAddEventListener>
         },
       ] as const
 
-      this.#element.addEventListener(pair[0], pair[1])
+      ;(this.#element.addEventListener as any)(pair[0], pair[1], this.#addEventListenerOptions)
 
       this.#removeEvenListenerQueue.push(pair)
     })
