@@ -11,6 +11,7 @@
     "build": "tsc --build --clean  && tsc --build tsconfig.json && npx tsc-alias",
     "prepublishOnly": "npm run build",
     "test": "rm -rf ./dist/ && jest",
+    "test:coverage": "jest --coverage",
     "postversion": "git push && git push --tags"
   },
   "repository": {
@@ -34,7 +35,9 @@
     "jest-environment-jsdom": "^29.6.0",
     "prettier": "^2.8.8",
     "ts-jest": "^29.1.1",
-    "tsc-alias": "^1.8.6"
+    "tsc-alias": "^1.8.6",
+    "undici": "^6.6.2",
+    "web-streams-polyfill": "^3.3.3"
   },
   "dependencies": {
     "typescript": "^5.1.3"
