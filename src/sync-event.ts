@@ -69,13 +69,17 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   }
 
   /**
-   * get listener count
+   * get listener count by event name
+   * if event is undefined , then return all listenerCount
    *
    * @public
    * @return {number}
    */
-  public listenerCount = (): number => {
-    return this.#listenerCount
+  public listenerCount = <K extends keyof M>(event?: K): number => {
+    if (event === undefined) {
+      return this.#listenerCount
+    }
+    return (this.#handlerMap.get(event)?.size ?? 0) + this.#anyHandlerSet.size
   }
 
   /**
@@ -268,10 +272,10 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
         resolved = true
         if (timeID !== undefined) clearTimeout(timeID)
 
-        if (mapToError) {
+        if (mapToError && typeof mapToError === 'function') {
           try {
             const errorToThrow = mapToError(...args)
-            if (errorToThrow == null) {
+            if (!(errorToThrow == null)) {
               rej(errorToThrow)
             } else {
               // still resolve
@@ -316,9 +320,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
    * @template K
    * @template EventList
    * @param {EventList} eventList
-   * @returns {Promise<{
-      -readonly [P in keyof EventList]: Arguments<M[EventList[P]['event']]>
-    }>}
+   * @returns {Promise<{ExtractHandlerMapArgumentsFromEventListItem<M, K, EventList>}>}
    */
   public waitUtilAll = async <
     K extends keyof M = keyof M,
@@ -551,32 +553,20 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
           return result
         }
         case 'any': {
-          let event: K
-          let isResolved = false
           const result = await Promise.any(
-            waitUtilListWithCancelRef.map(({ waitUtil, event: e }) => {
-              return waitUtil.then(() => {
-                if (isResolved) return
-                isResolved = true
-                event = e
-              })
-            }),
+            waitUtilListWithCancelRef.map(({ waitUtil, event }) =>
+              waitUtil.then(value => ({ value, event })),
+            ),
           )
-          return { event: event!, value: result }
+          return result
         }
         case 'race': {
-          let event: K
-          let isResolved = false
           const result = await Promise.race(
-            waitUtilListWithCancelRef.map(({ waitUtil, event: e }) => {
-              return waitUtil.then(() => {
-                if (isResolved) return
-                isResolved = true
-                event = e
-              })
-            }),
+            waitUtilListWithCancelRef.map(({ waitUtil, event }) =>
+              waitUtil.then(value => ({ value, event })),
+            ),
           )
-          return { event: event!, value: result }
+          return result
         }
         case 'allsettled': {
           const result = await Promise.allSettled(promises)
