@@ -680,12 +680,10 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
           return pre.on(event, callback)
         }, null as null | LinkableListener<M>)
       },
-      pull(controller) {
+      async pull(controller) {
         if (controller.desiredSize === null || controller.desiredSize > 0) {
-          const { value, ok } = ringBuffer.tryRead()
-          if (ok) {
-            controller.enqueue(value)
-          }
+          const value = await ringBuffer.read()
+          controller.enqueue(value)
         }
       },
       cancel() {
