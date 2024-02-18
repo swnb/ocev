@@ -632,6 +632,97 @@ test('test eventStream strategy replace', async () => {
   }
 })
 
+test('test eventReadableStream multi event', async () => {
+  const divEventProxy = SyncEvent.new<{
+    a: (v: number) => void
+    b: (v: string) => void
+    c: (o: boolean) => void
+  }>()
+
+  const eventStream = divEventProxy.createEventReadableStream(['a', 'b', 'c'])
+
+  let count = 0
+  setInterval(() => {
+    if (count % 3 === 0) {
+      divEventProxy.emit('a', count)
+    } else if (count % 3 === 1) {
+      divEventProxy.emit('b', count.toString())
+    } else {
+      divEventProxy.emit('c', !count)
+    }
+    count += 1
+  }, 500)
+
+  const reader = eventStream.getReader()
+
+  for (let index = 0; index < 7; index++) {
+    const { value: v, done } = await reader.read()
+    expect(done).toBe(false)
+    if (!done) {
+      const { value, event } = v
+      if (index % 3 === 0) {
+        expect(event).toBe('a')
+        expect(value[0]).toBe(index)
+      } else if (index % 3 === 1) {
+        expect(event).toBe('b')
+        expect(value[0]).toBe(index.toString())
+      } else {
+        expect(event).toBe('c')
+        expect(value[0]).toBe(!index)
+      }
+    }
+  }
+}, 7000)
+
+test('test eventReadableStream cancel', async () => {
+  const divEventProxy = SyncEvent.new<{
+    a: (v: number) => void
+    b: (v: string) => void
+    c: (o: boolean) => void
+  }>()
+
+  const eventStream = divEventProxy.createEventReadableStream(['a', 'b', 'c'])
+
+  const reader = eventStream.getReader()
+
+  let count = 0
+  setInterval(() => {
+    if (count % 3 === 0) {
+      divEventProxy.emit('a', count)
+    } else if (count % 3 === 1) {
+      divEventProxy.emit('b', count.toString())
+    } else {
+      divEventProxy.emit('c', !count)
+    }
+    if (count === 3) {
+      reader.cancel()
+    }
+    count += 1
+  }, 500)
+
+  for (let index = 0; index < 7; index++) {
+    const { value: v, done } = await reader.read()
+    if (index >= 3) {
+      expect(done).toBe(true)
+    } else {
+      expect(done).toBe(false)
+    }
+    if (!done) {
+      const { value, event } = v
+      if (index % 3 === 0) {
+        expect(event).toBe('a')
+        expect(value[0]).toBe(index)
+      } else if (index % 3 === 1) {
+        expect(event).toBe('b')
+        expect(value[0]).toBe(index.toString())
+      } else {
+        expect(event).toBe('c')
+        expect(value[0]).toBe(!index)
+      }
+    }
+  }
+}, 7000)
+
 test('test eventReadableStream strategy drop', async () => {
   const divEventProxy = EventProxy.new(document.createElement('input'))
 
