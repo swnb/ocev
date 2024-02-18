@@ -379,7 +379,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
    * @param strategy
    * @returns
    */
-  public createEventStreamAsyncIterator = <K extends keyof M = keyof M>(
+  public createEventStream = <K extends keyof M = keyof M>(
     eventList: K[],
     strategy: EventStreamStrategy = { capacity: 0, strategyWhenFull: 'replace' },
   ) => {
