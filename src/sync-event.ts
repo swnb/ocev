@@ -9,6 +9,7 @@ import type {
   LinkableListener,
   WaitUtilConfig,
   EventListItem,
+  ExtractHandlerMapArgumentsFromEventListItem,
 } from './types'
 import { errors } from './index'
 import { CollectionMap } from './map'
@@ -239,7 +240,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     event: K,
     config: WaitUtilConfig<Arguments<M[K]>> = {},
   ) => {
-    const { timeout = 0, cancelRef, where } = config
+    const { timeout = 0, cancelRef, where, mapToError } = config
 
     return new Promise<Arguments<M[K]>>((res, rej) => {
       let timeID: number | undefined
@@ -263,7 +264,23 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
 
         resolved = true
         if (timeID !== undefined) clearTimeout(timeID)
-        res(args)
+
+        if (mapToError) {
+          try {
+            const errorToThrow = mapToError(...args)
+            if (errorToThrow == null) {
+              rej(errorToThrow)
+            } else {
+              // still resolve
+              res(args)
+            }
+          } catch (error) {
+            rej(error)
+          }
+        } else {
+          res(args)
+        }
+
         // @ts-ignore
         this.off(event, callback)
       }
@@ -291,7 +308,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   /**
    * waitUtilAll wait util all event success fired
    * if any waitUtil failure , waitUtilAll will failure
-
+   * you should use as const for params eventList for type support
    * @async
    * @template K
    * @template EventList
@@ -302,19 +319,16 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
    */
   public waitUtilAll = async <
     K extends keyof M = keyof M,
-    EventList extends readonly Readonly<EventListItem<M, K>>[] = readonly Readonly<
-      EventListItem<M, K>
-    >[],
+    EventList extends readonly (Readonly<EventListItem<M, K>> | K)[] = readonly (
+      | Readonly<EventListItem<M, K>>
+      | K
+    )[],
   >(
     eventList: EventList,
-  ): Promise<{
-    -readonly [P in keyof EventList]: Arguments<M[EventList[P]['event']]>
-  }> => {
-    type Result = {
-      -readonly [P in keyof EventList]: Arguments<M[EventList[P]['event']]>
-    }
+  ): Promise<ExtractHandlerMapArgumentsFromEventListItem<M, K, EventList>> => {
+    type Result = ExtractHandlerMapArgumentsFromEventListItem<M, K, EventList>
 
-    return this.#innerGroupWaitUtil(eventList, 'all') as Result
+    return this.#innerGroupWaitUtil(this.#wrapEventList(eventList), 'all') as Result
   }
 
   /**
@@ -326,15 +340,15 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
    * @returns {Promise<K extends keyof M ? Arguments<M[K]> : never>}
    */
   public waitUtilRace = async <K extends keyof M = keyof M>(
-    eventList: EventListItem<M, K>[],
-  ): Promise<K extends keyof M ? Arguments<M[K]> : never> => {
-    type Result = K extends keyof M ? Arguments<M[K]> : never
+    eventList: (EventListItem<M, K> | K)[],
+  ): Promise<{ event: K; value: K extends keyof M ? Arguments<M[K]> : never }> => {
+    type Result = Promise<{ event: K; value: K extends keyof M ? Arguments<M[K]> : never }>
 
-    return this.#innerGroupWaitUtil(eventList, 'race') as Result
+    return this.#innerGroupWaitUtil(this.#wrapEventList(eventList), 'race') as Result
   }
 
   /**
-   * waitUtilAny wait util any waitUtil promise success or all failure
+   * waitUtilAny wait util any waitUtil promise success or all of them are failure
    *
    * @async
    * @template K
@@ -342,11 +356,11 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
    * @returns {Promise<K extends keyof M ? Arguments<M[K]> : never>}
    */
   public waitUtilAny = async <K extends keyof M = keyof M>(
-    eventList: EventListItem<M, K>[],
-  ): Promise<K extends keyof M ? Arguments<M[K]> : never> => {
-    type Result = K extends keyof M ? Arguments<M[K]> : never
+    eventList: (EventListItem<M, K> | K)[],
+  ): Promise<{ event: K; value: K extends keyof M ? Arguments<M[K]> : never }> => {
+    type Result = Promise<{ event: K; value: K extends keyof M ? Arguments<M[K]> : never }>
 
-    return this.#innerGroupWaitUtil(eventList, 'any') as Result
+    return this.#innerGroupWaitUtil(this.#wrapEventList(eventList), 'any') as Result
   }
 
   /**
@@ -396,12 +410,26 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     return publisher
   }
 
+  #wrapEventList = <K extends keyof M = keyof M>(
+    eventList: readonly (Readonly<EventListItem<M, K>> | K)[],
+  ): EventListItem<M, K>[] => {
+    const eventListWrapper = eventList.map(item => {
+      if (typeof item === 'object') {
+        return item
+      }
+      return {
+        event: item,
+      } as EventListItem<M, K>
+    })
+    return eventListWrapper as EventListItem<M, K>[]
+  }
+
   #innerGroupWaitUtil = async <
     K extends keyof M = keyof M,
     EventList = readonly Readonly<EventListItem<M, K>>[],
   >(
     eventList: EventList,
-    promiseType: 'any' | 'race' | 'all',
+    promiseType: 'any' | 'race' | 'all' | 'allsettled',
   ): Promise<unknown> => {
     if (!Array.isArray(eventList) || eventList.length <= 0) {
       throw Error('eventList must be array with at least one type')
@@ -422,28 +450,49 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
           ...config,
           cancelRef,
         }),
+        event,
         cancelRef,
       }
     })
 
+    const promises = waitUtilListWithCancelRef.map(({ waitUtil }) => waitUtil)
+
     try {
       switch (promiseType) {
         case 'all': {
-          const result = await Promise.all(
-            waitUtilListWithCancelRef.map(({ waitUtil }) => waitUtil),
-          )
+          const result = await Promise.all(promises)
           return result
         }
         case 'any': {
+          let event: K
+          let isResolved = false
           const result = await Promise.any(
-            waitUtilListWithCancelRef.map(({ waitUtil }) => waitUtil),
+            waitUtilListWithCancelRef.map(({ waitUtil, event: e }) => {
+              return waitUtil.then(() => {
+                if (isResolved) return
+                isResolved = true
+                event = e
+              })
+            }),
           )
-          return result
+          return { event: event!, value: result }
         }
         case 'race': {
+          let event: K
+          let isResolved = false
           const result = await Promise.race(
-            waitUtilListWithCancelRef.map(({ waitUtil }) => waitUtil),
+            waitUtilListWithCancelRef.map(({ waitUtil, event: e }) => {
+              return waitUtil.then(() => {
+                if (isResolved) return
+                isResolved = true
+                event = e
+              })
+            }),
           )
+          return { event: event!, value: result }
+        }
+        case 'allsettled': {
+          const result = await Promise.allSettled(promises)
           return result
         }
         default:
