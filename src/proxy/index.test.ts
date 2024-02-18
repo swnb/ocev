@@ -4,6 +4,28 @@
 
 import { EventProxy, SyncEvent } from '..'
 
+const { TextDecoder, TextEncoder } = require('node:util')
+const { ReadableStream } = require('web-streams-polyfill/ponyfill/es2018')
+
+Object.defineProperties(globalThis, {
+  ReadableStream: { value: ReadableStream },
+  TextDecoder: { value: TextDecoder },
+  TextEncoder: { value: TextEncoder },
+})
+
+const { Blob, File } = require('node:buffer')
+const { fetch, Headers, FormData, Request, Response } = require('undici')
+
+Object.defineProperties(globalThis, {
+  fetch: { value: fetch, writable: true },
+  Blob: { value: Blob },
+  File: { value: File },
+  Headers: { value: Headers },
+  FormData: { value: FormData },
+  Request: { value: Request },
+  Response: { value: Response },
+})
+
 // define event handler type
 
 type EventHandlerMap = {
@@ -492,7 +514,7 @@ test('test eventStream multi event', async () => {
   }
 }, 7000)
 
-test('test eventStream strategy', async () => {
+test('test eventStream strategy drop', async () => {
   const divEventProxy = EventProxy.new(document.createElement('input'))
 
   const eventStream = divEventProxy.createEventStream(['click', 'focus', 'input'], {
@@ -500,7 +522,7 @@ test('test eventStream strategy', async () => {
     strategyWhenFull: 'drop',
   })
 
-  for (let count = 0; count < 4; count++) {
+  for (let count = 0; count < 3; count++) {
     if (count % 3 === 0) {
       divEventProxy.element.dispatchEvent(new Event('click'))
     } else if (count % 3 === 1) {
@@ -510,17 +532,29 @@ test('test eventStream strategy', async () => {
     }
   }
 
-  // setTimeout(() => {
-  //   for (let count = 0; count < 4; count++) {
-  //     if (count % 3 === 0) {
-  //       divEventProxy.element.dispatchEvent(new Event('click'))
-  //     } else if (count % 3 === 1) {
-  //       divEventProxy.element.dispatchEvent(new Event('focus'))
-  //     } else {
-  //       divEventProxy.element.dispatchEvent(new Event('blur'))
-  //     }
-  //   }
-  // }, 1000)
+  setTimeout(() => {
+    for (let count = 0; count < 3; count++) {
+      if (count % 3 === 0) {
+        divEventProxy.element.dispatchEvent(new Event('click'))
+      } else if (count % 3 === 1) {
+        divEventProxy.element.dispatchEvent(new Event('focus'))
+      } else {
+        divEventProxy.element.dispatchEvent(new Event('input'))
+      }
+    }
+  }, 1000)
+
+  setTimeout(() => {
+    for (let count = 0; count < 3; count++) {
+      if (count % 3 === 0) {
+        divEventProxy.element.dispatchEvent(new Event('click'))
+      } else if (count % 3 === 1) {
+        divEventProxy.element.dispatchEvent(new Event('focus'))
+      } else {
+        divEventProxy.element.dispatchEvent(new Event('input'))
+      }
+    }
+  }, 2000)
 
   let count = 0
   // eslint-disable-next-line no-restricted-syntax
@@ -533,8 +567,189 @@ test('test eventStream strategy', async () => {
       expect(value[0].type).toBe('focus')
     }
     count += 1
-    if (count >= 4) {
+    if (count >= 6) {
       return
+    }
+  }
+})
+
+test('test eventStream strategy replace', async () => {
+  const divEventProxy = EventProxy.new(document.createElement('input'))
+
+  const eventStream = divEventProxy.createEventStream(['click', 'focus', 'input'], {
+    capacity: 2,
+    strategyWhenFull: 'replace',
+  })
+
+  for (let count = 0; count < 3; count++) {
+    if (count % 3 === 0) {
+      divEventProxy.element.dispatchEvent(new Event('click'))
+    } else if (count % 3 === 1) {
+      divEventProxy.element.dispatchEvent(new Event('focus'))
+    } else {
+      divEventProxy.element.dispatchEvent(new Event('input'))
+    }
+  }
+
+  setTimeout(() => {
+    for (let count = 0; count < 3; count++) {
+      if (count % 3 === 0) {
+        divEventProxy.element.dispatchEvent(new Event('click'))
+      } else if (count % 3 === 1) {
+        divEventProxy.element.dispatchEvent(new Event('focus'))
+      } else {
+        divEventProxy.element.dispatchEvent(new Event('input'))
+      }
+    }
+  }, 1000)
+
+  setTimeout(() => {
+    for (let count = 0; count < 3; count++) {
+      if (count % 3 === 0) {
+        divEventProxy.element.dispatchEvent(new Event('click'))
+      } else if (count % 3 === 1) {
+        divEventProxy.element.dispatchEvent(new Event('focus'))
+      } else {
+        divEventProxy.element.dispatchEvent(new Event('input'))
+      }
+    }
+  }, 2000)
+
+  let count = 0
+  // eslint-disable-next-line no-restricted-syntax
+  for await (const { event, value } of eventStream) {
+    if (count % 2 === 0) {
+      expect(event).toBe('focus')
+      expect(value[0].type).toBe('focus')
+    } else if (count % 2 === 1) {
+      expect(event).toBe('input')
+      expect(value[0].type).toBe('input')
+    }
+    count += 1
+    if (count >= 6) {
+      return
+    }
+  }
+})
+
+test('test eventReadableStream strategy drop', async () => {
+  const divEventProxy = EventProxy.new(document.createElement('input'))
+
+  const eventStream = divEventProxy.createEventReadableStream(['click', 'focus', 'input'], {
+    capacity: 2,
+    strategyWhenFull: 'drop',
+  })
+
+  for (let count = 0; count < 3; count++) {
+    if (count % 3 === 0) {
+      divEventProxy.element.dispatchEvent(new Event('click'))
+    } else if (count % 3 === 1) {
+      divEventProxy.element.dispatchEvent(new Event('focus'))
+    } else {
+      divEventProxy.element.dispatchEvent(new Event('input'))
+    }
+  }
+
+  setTimeout(() => {
+    for (let count = 0; count < 3; count++) {
+      if (count % 3 === 0) {
+        divEventProxy.element.dispatchEvent(new Event('click'))
+      } else if (count % 3 === 1) {
+        divEventProxy.element.dispatchEvent(new Event('focus'))
+      } else {
+        divEventProxy.element.dispatchEvent(new Event('input'))
+      }
+    }
+  }, 1000)
+
+  setTimeout(() => {
+    for (let count = 0; count < 3; count++) {
+      if (count % 3 === 0) {
+        divEventProxy.element.dispatchEvent(new Event('click'))
+      } else if (count % 3 === 1) {
+        divEventProxy.element.dispatchEvent(new Event('focus'))
+      } else {
+        divEventProxy.element.dispatchEvent(new Event('input'))
+      }
+    }
+  }, 2000)
+
+  const reader = eventStream.getReader()
+  for (let count = 0; count < 6; count++) {
+    const { value: v, done } = await reader.read()
+
+    expect(done).toBe(false)
+
+    if (!done) {
+      const { event, value } = v
+      if (count % 2 === 0) {
+        expect(event).toBe('click')
+        expect(value[0].type).toBe('click')
+      } else if (count % 2 === 1) {
+        expect(event).toBe('focus')
+        expect(value[0].type).toBe('focus')
+      }
+    }
+  }
+})
+
+test('test eventReadableStream strategy replace', async () => {
+  const divEventProxy = EventProxy.new(document.createElement('input'))
+
+  const eventStream = divEventProxy.createEventReadableStream(['click', 'focus', 'input'], {
+    capacity: 2,
+    strategyWhenFull: 'replace',
+  })
+
+  for (let count = 0; count < 3; count++) {
+    if (count % 3 === 0) {
+      divEventProxy.element.dispatchEvent(new Event('click'))
+    } else if (count % 3 === 1) {
+      divEventProxy.element.dispatchEvent(new Event('focus'))
+    } else {
+      divEventProxy.element.dispatchEvent(new Event('input'))
+    }
+  }
+
+  setTimeout(() => {
+    for (let count = 0; count < 3; count++) {
+      if (count % 3 === 0) {
+        divEventProxy.element.dispatchEvent(new Event('click'))
+      } else if (count % 3 === 1) {
+        divEventProxy.element.dispatchEvent(new Event('focus'))
+      } else {
+        divEventProxy.element.dispatchEvent(new Event('input'))
+      }
+    }
+  }, 1000)
+
+  setTimeout(() => {
+    for (let count = 0; count < 3; count++) {
+      if (count % 3 === 0) {
+        divEventProxy.element.dispatchEvent(new Event('click'))
+      } else if (count % 3 === 1) {
+        divEventProxy.element.dispatchEvent(new Event('focus'))
+      } else {
+        divEventProxy.element.dispatchEvent(new Event('input'))
+      }
+    }
+  }, 2000)
+
+  const reader = eventStream.getReader()
+  for (let count = 0; count < 6; count++) {
+    const { value: v, done } = await reader.read()
+
+    expect(done).toBe(false)
+
+    if (!done) {
+      const { event, value } = v
+      if (count % 2 === 0) {
+        expect(event).toBe('focus')
+        expect(value[0].type).toBe('focus')
+      } else if (count % 2 === 1) {
+        expect(event).toBe('input')
+        expect(value[0].type).toBe('input')
+      }
     }
   }
 })
