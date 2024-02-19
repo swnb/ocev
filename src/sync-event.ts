@@ -699,13 +699,14 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
 
     let cancel: VoidFunction | null
 
-    const { on } = this
+    const { on, waitUtilRace } = this
 
     const stream = new ReadableStream<WaitUtilCommonReturnValue<M, K>>({
-      start() {
+      start(controller) {
         cancel = eventList.reduce((pre, event: K) => {
           const callback = ((...args: Arguments<M[K]>) => {
-            queue.push({ event, value: args } as WaitUtilCommonReturnValue<M, K>)
+            const cell = { event, value: args } as WaitUtilCommonReturnValue<M, K>
+            controller.enqueue(cell)
           }) as M[K]
           if (!pre) {
             return on(event, callback)
@@ -713,19 +714,21 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
           return pre.on(event, callback)
         }, null as null | LinkableListener<M>)
       },
-      pull(controller) {
-        if (!queue.length) return
+      // async pull(controller) {
+      //   while (!queue.length) {
+      //     await waitUtilRace(eventList)
+      //   }
 
-        let size = queue.length
+      //   let size = queue.length
 
-        if (controller.desiredSize) {
-          size = Math.min(controller.desiredSize, size)
-        }
+      //   if (controller.desiredSize) {
+      //     size = Math.min(controller.desiredSize, size)
+      //   }
 
-        for (let i = 0; i < size; i++) {
-          controller.enqueue(queue.shift()!)
-        }
-      },
+      //   for (let i = 0; i < size; i++) {
+      //     controller.enqueue(queue.shift()!)
+      //   }
+      // },
       cancel() {
         cancel?.()
       },
