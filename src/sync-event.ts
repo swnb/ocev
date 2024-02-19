@@ -695,11 +695,11 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   }
 
   #createEventReadableStreamWithoutCapacity = <K extends keyof M = keyof M>(eventList: K[]) => {
-    const queue: WaitUtilCommonReturnValue<M, K>[] = []
+    // const queue: WaitUtilCommonReturnValue<M, K>[] = []
 
     let cancel: VoidFunction | null
 
-    const { on, waitUtilRace } = this
+    const { on } = this
 
     const stream = new ReadableStream<WaitUtilCommonReturnValue<M, K>>({
       start(controller) {
