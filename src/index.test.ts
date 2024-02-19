@@ -657,6 +657,7 @@ test('test eventReadableStream multi event', async () => {
 
   for (let index = 0; index < 7; index++) {
     const { value: v, done } = await reader.read()
+
     expect(done).toBe(false)
     if (!done) {
       const { value, event } = v
@@ -702,7 +703,7 @@ test('test eventReadableStream cancel', async () => {
 
   for (let index = 0; index < 7; index++) {
     const { value: v, done } = await reader.read()
-    if (index >= 3) {
+    if (index > 3) {
       expect(done).toBe(true)
     } else {
       expect(done).toBe(false)
