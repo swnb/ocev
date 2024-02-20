@@ -6,6 +6,7 @@ export type {
   ObserverAccessControl,
   PublisherAccessControl,
   EventListItem,
+  ListenerOptions,
 } from './types'
 
 export * as errors from './errors'

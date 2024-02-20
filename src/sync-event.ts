@@ -115,6 +115,11 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     handler: M[K],
     options?: ListenerOptions,
   ): LinkableListener<M> => {
+    if (options) {
+      const config = this.#validListenerOptions(options)
+      this.#listenerConfigMap.set(handler, config)
+    }
+
     const handlersSet = this.#handlerMap.get(event)
     if (handlersSet) {
       const addResult = handlersSet.add(handler)
@@ -126,28 +131,6 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
       newHandlersSet.add(handler)
       this.#handlerMap.set(event, newHandlersSet)
       this.#listenerCount += 1
-    }
-
-    if (options?.debounce || options?.throttle) {
-      const debounceWaitMs = Math.max((Number(options?.debounce?.waitMs) || 0) ?? 0, 0)
-      const throttleWaitMs = Math.max((Number(options?.throttle?.waitMs) || 0) ?? 0, 0)
-      const config: ListenerConfig = {
-        lastEmitMs: 0,
-      }
-      if (debounceWaitMs !== 0) {
-        config.debounce = {
-          waitMs: debounceWaitMs,
-          maxWaitMs: options.debounce?.maxWaitMs ?? 0,
-          expectExecTimeMs: 0,
-          delayMs: 0,
-          timerId: 0,
-        }
-      }
-      if (throttleWaitMs !== 0) {
-        config.throttle = { waitMs: throttleWaitMs }
-      }
-
-      this.#listenerConfigMap.set(handler, config)
     }
 
     const cancelFunction = this.off.bind(null, event, handler)
@@ -246,7 +229,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
       handlers.forEach(handler => {
         try {
           const config = this.#listenerConfigMap.get(handler)
-          if (config) {
+          if (config && (config.debounce || config?.throttle)) {
             this.#callHandlerWithConfig(handler as any, args as Arguments<M[K]>, config)
           } else {
             // @ts-ignore
@@ -548,6 +531,52 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     return publisher
   }
 
+  #validNumber = (value: any): value is number => {
+    return typeof value === 'number' && !Number.isNaN(value)
+  }
+
+  #validListenerOptions = (options: ListenerOptions): ListenerConfig => {
+    const config: ListenerConfig = {
+      lastEmitMs: 0,
+    }
+
+    const { debounce, throttle } = options
+
+    if (debounce) {
+      if (!this.#validNumber(debounce.waitMs) || debounce.waitMs <= 0) {
+        throw Error('debounce.waitMs must be number and large than zero')
+      }
+
+      let maxWaitMs = 0
+      if (debounce.maxWaitMs) {
+        if (!this.#validNumber(debounce.maxWaitMs) || debounce.maxWaitMs <= 0) {
+          throw Error('debounce.maxWaitMs must be number and large than zero')
+        }
+        maxWaitMs = debounce.maxWaitMs
+      }
+
+      config.debounce = {
+        waitMs: debounce.waitMs,
+        maxWaitMs,
+        delayMs: 0,
+        expectExecTimeMs: 0,
+        timerId: 0,
+      }
+    }
+
+    if (throttle) {
+      if (!this.#validNumber(throttle.waitMs) || throttle.waitMs <= 0) {
+        throw Error('throttle.waitMs must be number and large than zero')
+      }
+
+      config.throttle = {
+        waitMs: throttle.waitMs,
+      }
+    }
+
+    return config
+  }
+
   #callHandlerWithConfig = <K extends keyof M>(
     handler: M[K],
     args: Arguments<M[K]>,
@@ -577,14 +606,16 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
       clearTimeout(debounce.timerId)
       const currentTimeMs = getCurrentTimeMs()
 
+      const doItRightNow = () => {
+        debounce.delayMs = 0
+        doIt()
+      }
+
       const doNormalDebounce = () => {
         // record delayMs
         debounce.delayMs += debounce.waitMs
         debounce.expectExecTimeMs = currentTimeMs + debounce.waitMs
-        debounce.timerId = setTimeout(() => {
-          debounce.delayMs = 0
-          doIt()
-        }, debounce.waitMs)
+        debounce.timerId = setTimeout(doItRightNow, debounce.waitMs)
       }
 
       if (!debounce.delayMs || !debounce.maxWaitMs) {
@@ -603,25 +634,20 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
 
         if (currentDelayMs >= debounce.maxWaitMs) {
           // 超时了，不再延长
-          debounce.delayMs = 0
-          doIt()
+          doItRightNow()
         } else if (currentDelayMs + debounce.waitMs >= debounce.maxWaitMs) {
           const waitMs = debounce.maxWaitMs - currentDelayMs
 
-          const MIN_ALLOW_DELAY_MS = 1
+          const MIN_ALLOW_DELAY_MS = 6
 
           if (waitMs >= MIN_ALLOW_DELAY_MS) {
-            // 延长到最大的限制再执行
+            // 延长到最大的限制点，不在推移，直接再执行
             debounce.delayMs = debounce.maxWaitMs
             debounce.expectExecTimeMs = currentTimeMs + waitMs
-            debounce.timerId = setTimeout(() => {
-              debounce.delayMs = 0
-              doIt()
-            }, waitMs)
+            debounce.timerId = setTimeout(doItRightNow, waitMs)
           } else {
             // 没有必要再推移了
-            debounce.delayMs = 0
-            doIt()
+            doItRightNow()
           }
         } else {
           // 不可能触发限制，当成平常的防抖即可

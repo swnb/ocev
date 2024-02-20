@@ -156,25 +156,28 @@ export type EventStreamStrategy = {
   strategyWhenFull: 'drop' | 'replace'
 }
 
-type ListenerTimeOptions = {
-  waitMs: number
-  maxWaitMs?: number
-}
-
 export type ListenerOptions = {
-  debounce?: ListenerTimeOptions
-  throttle?: ListenerTimeOptions
+  debounce?: {
+    waitMs: number
+    maxWaitMs?: number
+  }
+  throttle?: {
+    waitMs: number
+  }
 }
 
 export type ListenerConfig = {
   lastEmitMs: number
-  debounce?: ListenerTimeOptions & {
+  debounce?: {
+    waitMs: number
     timerId: number | NodeJS.Timeout
     expectExecTimeMs: number
     delayMs: number
     maxWaitMs: number
   }
-  throttle?: ListenerTimeOptions
+  throttle?: {
+    waitMs: number
+  }
 }
 
 export type OmitUndefinedKeyInObject<V> = V extends Record<any, any>
