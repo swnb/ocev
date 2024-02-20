@@ -49,6 +49,8 @@ export class EventProxy<T extends CanAddEventListener>
 
   any = this.#syncEvent.any
 
+  listenerCount = this.#syncEvent.listenerCount
+
   // rewrite all methods , this is the cost for not use extends
 
   // combination better than extends
@@ -116,10 +118,6 @@ export class EventProxy<T extends CanAddEventListener>
 
   static new<T extends CanAddEventListener>(element: T, options?: Options) {
     return new EventProxy(element, options)
-  }
-
-  listenerCount = () => {
-    return this.#syncEvent.listenerCount()
   }
 
   on: ISyncEvent<UnionEventHandler<T, GetAddEventListenerKeys<T>>>['on'] = (
