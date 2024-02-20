@@ -12,8 +12,6 @@ type Options = {
   addEventListenerOptions?: AddEventListenerOptions | boolean
 }
 
-document.createElement('div').addEventListener('abort', () => {})
-
 export class EventProxy<T extends CanAddEventListener>
   implements
     Omit<
