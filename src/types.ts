@@ -40,7 +40,7 @@ export interface ISyncEvent<M extends HandlerMap> {
    * @param handler  callback will run when emit same event type
    * @returns
    */
-  on: <K extends keyof M>(type: K, handler: M[K]) => LinkableListener<M>
+  on: <K extends keyof M>(type: K, handler: M[K], options?: ListenerOptions) => LinkableListener<M>
   /**
    * @param type event type
    * @param handler  callback only run one time
@@ -61,7 +61,7 @@ export interface ISyncEvent<M extends HandlerMap> {
   ) => VoidFunction
   offAll: <K extends keyof M>(type?: K | undefined) => this
   off: <K extends keyof M>(type: K, handler: M[K]) => this
-  emit: <K extends keyof M>(type: K, ...arg: Parameters<M[K]>) => this
+  emit: <K extends keyof M>(type: K, ...arg: Arguments<M[K]>) => this
   waitUtil: <K extends keyof M>(
     type: K,
     config?: WaitUtilConfig<Arguments<M[K]>>,
@@ -84,7 +84,9 @@ export interface ISyncEvent<M extends HandlerMap> {
   ) => IAccessControlPublisher<M, K>
 }
 
-export type Arguments<T> = T extends (...args: infer R) => void ? R : never
+export type Arguments<T extends (...args: any) => any> = T extends (...args: infer R) => void
+  ? R
+  : never
 
 type AccessControl<Event> = {
   events?: Event[]
@@ -104,7 +106,7 @@ export interface IAccessControlObserver<M extends HandlerMap, K extends keyof M>
 
 export interface IAccessControlPublisher<M extends HandlerMap, K extends keyof M>
   extends Pick<ISyncEvent<M>, 'interceptEmit' | 'unInterceptEmit'> {
-  emit: (type: K, ...arg: Parameters<M[K]>) => this
+  emit: (type: K, ...arg: Arguments<M[K]>) => this
 }
 
 export type TransformEventList2ArgumentsList<
@@ -144,11 +146,37 @@ export type ExtractHandlerMapArgumentsFromEventListItem<
   >
 }
 
-export type WaitUtilCommonReturnValue<M, K extends keyof M> = K extends keyof M
-  ? { event: K; value: Arguments<M[K]> }
-  : never
+export type WaitUtilCommonReturnValue<
+  M extends Record<any, any>,
+  K extends keyof M,
+> = K extends keyof M ? { event: K; value: Arguments<M[K]> } : never
 
 export type EventStreamStrategy = {
   capacity: number // is capacity is zero , means Infinity;
   strategyWhenFull: 'drop' | 'replace'
 }
+
+type ListenerTimeOptions = {
+  waitMs: number
+  maxWaitTime?: number
+}
+
+export type ListenerOptions = {
+  debounce?: ListenerTimeOptions
+  throttle?: ListenerTimeOptions
+}
+
+export type ListenerConfig = {
+  lastEmitMs: number
+  debounce?: ListenerTimeOptions & {
+    timerId: number | NodeJS.Timeout
+    maxWaitTime: number
+  }
+  throttle?: ListenerTimeOptions
+}
+
+export type OmitUndefinedKeyInObject<V> = V extends Record<any, any>
+  ? {
+      [K in keyof V]-?: OmitUndefinedKeyInObject<V[K]>
+    }
+  : V

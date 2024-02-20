@@ -12,28 +12,34 @@ import type {
   ExtractHandlerMapArgumentsFromEventListItem,
   EventStreamStrategy,
   WaitUtilCommonReturnValue,
+  ListenerOptions,
+  ListenerConfig,
 } from './types'
 import { errors } from './index'
 import { CollectionMap } from './map'
 import { createListenerLinker } from './linkable-listener'
 import { RingBuffer } from './ring-buffer'
+import { CollectionSet } from './set'
+import { getCurrentTimeMs } from './time'
 
 export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   #handlerMap = new CollectionMap<{
-    [K in keyof M]: Set<M[K]>
+    [K in keyof M]: CollectionSet<M[K]>
   }>()
 
   #isInterceptEmit = false
 
   #onceHandlerWrapperMap = new Map<M[keyof M], M[keyof M] & { type: keyof M }>()
 
-  #anyHandlerSet = new Set<(...args: any[]) => any>()
+  #anyHandlerSet = new CollectionSet<(...args: any[]) => any>()
 
   #observer: Pick<this, 'on' | 'once' | 'off' | 'waitUtil'>
 
   #publisher: Pick<this, 'emit' | 'interceptEmit' | 'unInterceptEmit'>
 
   #listenerCount = 0
+
+  #listenerConfigMap = new Map<M[keyof M], ListenerConfig>()
 
   constructor() {
     this.#observer = Object.freeze({
@@ -104,17 +110,43 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
    * @param handler  callback will run when emit same event name
    * @return {VoidFunction} function off handler
    */
-  public on = <K extends keyof M>(event: K, handler: M[K]): LinkableListener<M> => {
+  public on = <K extends keyof M>(
+    event: K,
+    handler: M[K],
+    options?: ListenerOptions,
+  ): LinkableListener<M> => {
     const handlersSet = this.#handlerMap.get(event)
     if (handlersSet) {
-      handlersSet.add(handler)
+      const addResult = handlersSet.add(handler)
+      if (addResult) {
+        this.#listenerCount += 1
+      }
     } else {
-      const newHandlersSet = new Set<M[K]>()
+      const newHandlersSet = new CollectionSet<M[K]>()
       newHandlersSet.add(handler)
       this.#handlerMap.set(event, newHandlersSet)
+      this.#listenerCount += 1
     }
 
-    this.#listenerCount += 1
+    if (options?.debounce || options?.throttle) {
+      const debounceWaitMs = Math.max((Number(options?.debounce?.waitMs) || 0) ?? 0, 0)
+      const throttleWaitMs = Math.max((Number(options?.throttle?.waitMs) || 0) ?? 0, 0)
+      const config: ListenerConfig = {
+        lastEmitMs: 0,
+      }
+      if (debounceWaitMs !== 0) {
+        config.debounce = {
+          waitMs: debounceWaitMs,
+          maxWaitTime: options.debounce?.maxWaitTime ?? 0,
+          timerId: 0,
+        }
+      }
+      if (throttleWaitMs !== 0) {
+        config.throttle = { waitMs: throttleWaitMs }
+      }
+
+      this.#listenerConfigMap.set(handler, config)
+    }
 
     const cancelFunction = this.off.bind(null, event, handler)
 
@@ -171,7 +203,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   public offAll = <K extends keyof M>(event?: K): this => {
     if (event) {
       // FIXME memory leak
-      this.#handlerMap.set(event, new Set())
+      this.#handlerMap.set(event, new CollectionSet())
     } else {
       this.#handlerMap.clear()
       this.#onceHandlerWrapperMap.clear()
@@ -203,7 +235,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
 
   // emit event and some arguments
   // all register will call with the arguments
-  public emit = <K extends keyof M>(event: K, ...arg: Parameters<M[K]>) => {
+  public emit = <K extends keyof M>(event: K, ...args: Arguments<M[K]>) => {
     // 一段时间内不可以监听事件
     if (this.#isInterceptEmit) return this
 
@@ -211,8 +243,13 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     if (handlers) {
       handlers.forEach(handler => {
         try {
-          // @ts-ignore
-          handler(...arg)
+          const config = this.#listenerConfigMap.get(handler)
+          if (config) {
+            this.#callHandlerWithConfig(handler as any, args as Arguments<M[K]>, config)
+          } else {
+            // @ts-ignore
+            handler(...args)
+          }
         } catch {}
       })
     }
@@ -220,7 +257,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     this.#anyHandlerSet.forEach(handler => {
       try {
         // @ts-ignore
-        handler(event, ...arg)
+        handler(event, ...args)
       } catch {}
     })
 
@@ -400,6 +437,8 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     let handler: {
       getValue: () => Promise<WaitUtilCommonReturnValue<M, K>>
       cancel: () => Promise<void>
+      droppedEventCount?: () => number
+      replacedEventCount?: () => number
     }
     if (strategy.capacity) {
       handler = this.#createEventStreamAsyncIterWithCapacity(eventList, strategy)
@@ -420,11 +459,19 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
           },
         }
       },
+      droppedEventCount() {
+        return handler.droppedEventCount?.() ?? 0
+      },
+      replacedEventCount() {
+        return handler.replacedEventCount?.() ?? 0
+      },
     }
   }
 
   /**
-   * createEventReadableStream is almost the same as createEventStreamAsyncIterator, see details of createEventStreamAsyncIterator
+   * createEventReadableStream is almost the same as createEventStreamAsyncIterator
+   * return ReadableStream contains event stream
+   * see details of createEventStreamAsyncIterator
    *
    * @param eventList
    * @param strategy
@@ -482,7 +529,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     canUnInterceptEmit = true,
   }: PublisherAccessControl<K> = {}): IAccessControlPublisher<M, K> => {
     const publisher: IAccessControlPublisher<M, K> = Object.freeze({
-      emit: (key: K, ...args: Parameters<M[K]>) => {
+      emit: (key: K, ...args: Arguments<M[K]>) => {
         if (!events.includes(key)) throw errors.AccessControlError
         this.emit(key, ...args)
         return this
@@ -497,6 +544,67 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
       },
     })
     return publisher
+  }
+
+  #callHandlerWithConfig = <K extends keyof M>(
+    handler: M[K],
+    args: Arguments<M[K]>,
+    configAlias: ListenerConfig,
+  ) => {
+    const config = configAlias
+
+    const doIt = () => {
+      // @ts-ignore
+      handler(...args)
+    }
+
+    const { debounce, throttle } = config
+
+    const doDebounce = () => {
+      if (!debounce) return
+
+      clearTimeout(debounce.timerId)
+      debounce.timerId = setTimeout(() => {
+        config.lastEmitMs = getCurrentTimeMs()
+        doIt()
+      }, debounce.waitMs)
+    }
+
+    if (debounce?.waitMs && throttle?.waitMs) {
+      // if debounce.waitMs is large than throttle.waitMs , throttle is useless
+      if (debounce.waitMs > throttle.waitMs) {
+        doDebounce()
+      } else {
+        // if debounce.waitMs reach  but throttle is not reach, wait util throttle is reach, then emit
+        // is any new emit break this process , we do debounce again
+        const currentTimeMs = getCurrentTimeMs()
+        clearTimeout(debounce.timerId)
+        const throttleLastEmitMs = config.lastEmitMs === 0 ? currentTimeMs : config.lastEmitMs
+        const nextThrottleEmitMs = throttleLastEmitMs + throttle.waitMs
+        const debounceEmitMs = currentTimeMs + debounce.waitMs
+
+        const callback = () => {
+          config.lastEmitMs = getCurrentTimeMs()
+          doIt()
+        }
+
+        if (nextThrottleEmitMs > debounceEmitMs) {
+          debounce.timerId = setTimeout(callback, nextThrottleEmitMs - currentTimeMs)
+        } else {
+          debounce.timerId = setTimeout(callback, debounce.waitMs)
+        }
+      }
+    } else if (debounce) {
+      doDebounce()
+    } else if (throttle) {
+      const currentTimeMs = getCurrentTimeMs()
+      if (config.lastEmitMs === 0 || currentTimeMs - config.lastEmitMs > throttle.waitMs) {
+        doIt()
+        config.lastEmitMs = currentTimeMs
+      }
+    } else {
+      doIt()
+    }
   }
 
   #wrapEventList = <K extends keyof M = keyof M>(
@@ -568,10 +676,6 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
           )
           return result
         }
-        case 'allsettled': {
-          const result = await Promise.allSettled(promises)
-          return result
-        }
         default:
           throw Error('wrong promise type')
       }
@@ -588,14 +692,21 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   ) => {
     const ringBuffer = new RingBuffer<WaitUtilCommonReturnValue<M, K>>(strategy.capacity)
 
+    let droppedEventCount = 0
+    let replacedEventCount = 0
     const cancel = eventList.reduce((pre, event: K) => {
       const callback = ((...args: Arguments<M[K]>) => {
         const cell = { event, value: args } as WaitUtilCommonReturnValue<M, K>
         const success = ringBuffer.tryWrite(cell)
-        if (!success && strategy.strategyWhenFull == 'replace') {
-          ringBuffer.read()
-          if (!ringBuffer.tryWrite(cell)) {
-            throw Error('unreachable')
+        if (!success) {
+          if (strategy.strategyWhenFull == 'replace') {
+            ringBuffer.read()
+            if (!ringBuffer.tryWrite(cell)) {
+              throw Error('unreachable')
+            }
+            replacedEventCount += 1
+          } else {
+            droppedEventCount += 1
           }
         }
       }) as M[K]
@@ -613,6 +724,12 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
       },
       async cancel() {
         cancel?.()
+      },
+      droppedEventCount() {
+        return droppedEventCount
+      },
+      replacedEventCount() {
+        return replacedEventCount
       },
     }
   }

@@ -1,4 +1,4 @@
-import type { HandlerMap, ISyncEvent, LinkableListener } from './types'
+import type { HandlerMap, ISyncEvent, LinkableListener, ListenerOptions } from './types'
 import { createListenerLinker } from './linkable-listener'
 import { SyncEvent } from './sync-event'
 
@@ -14,13 +14,17 @@ export class InnerHookAbleSyncEvent<M extends HandlerMap>
     const superOff = this.off
 
     // override
-    this.on = <K extends keyof M>(type: K, handler: M[K]): LinkableListener<M> => {
+    this.on = <K extends keyof M>(
+      type: K,
+      handler: M[K],
+      options?: ListenerOptions,
+    ): LinkableListener<M> => {
       if (type !== '__onSyncEventListener__' && type !== '__offSyncEventListener__') {
         // @ts-ignore
         this.emit('__onSyncEventListener__', type)
       }
 
-      const cancelFunction = superOn(type, handler)
+      const cancelFunction = superOn(type, handler, options)
 
       return createListenerLinker(this.on, this.once, [cancelFunction])
     }

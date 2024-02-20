@@ -1,4 +1,4 @@
-export class CollectionMap<M extends Record<string, any>> {
+export class CollectionMap<M extends Record<any, any>> {
   #map = new Map()
 
   has = <K extends keyof M>(key: K): boolean => {
@@ -10,7 +10,9 @@ export class CollectionMap<M extends Record<string, any>> {
   }
 
   set = <K extends keyof M>(key: K, value: M[K]) => {
+    const result = !this.#map.has(key)
     this.#map.set(key, value)
+    return result
   }
 
   delete = <K extends keyof M>(key: K): boolean => {

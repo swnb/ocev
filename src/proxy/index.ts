@@ -1,5 +1,5 @@
 import type { UnionEventHandler, GetAddEventListenerKeys } from './types'
-import type { ISyncEvent } from '@/types'
+import type { ISyncEvent, ListenerOptions } from '@/types'
 import { InnerHookAbleSyncEvent } from '@/inner-sync-event'
 
 export interface CanAddEventListener {
@@ -124,12 +124,16 @@ export class EventProxy<T extends CanAddEventListener>
     return this.#syncEvent.listenerCount()
   }
 
-  on: ISyncEvent<UnionEventHandler<T, GetAddEventListenerKeys<T>>>['on'] = (type, callback) => {
+  on: ISyncEvent<UnionEventHandler<T, GetAddEventListenerKeys<T>>>['on'] = (
+    type,
+    callback,
+    options?: ListenerOptions,
+  ) => {
     if (type === '__offSyncEventListener__' || type === '__onSyncEventListener__') {
       throw Error("you can't not use this eventType")
     }
 
-    return this.#syncEvent.on(type, callback)
+    return this.#syncEvent.on(type, callback, options)
   }
 
   offAll = () => {
