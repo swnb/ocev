@@ -577,7 +577,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
       clearTimeout(debounce.timerId)
       const currentTimeMs = getCurrentTimeMs()
 
-      if (!debounce.delayMs || !debounce.maxWaitMs) {
+      const doNormalDebounce = () => {
         // record delayMs
         debounce.delayMs += debounce.waitMs
         debounce.expectExecTimeMs = currentTimeMs + debounce.waitMs
@@ -585,7 +585,10 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
           debounce.delayMs = 0
           doIt()
         }, debounce.waitMs)
+      }
 
+      if (!debounce.delayMs || !debounce.maxWaitMs) {
+        doNormalDebounce()
         return
       }
 
@@ -622,12 +625,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
           }
         } else {
           // 不可能触发限制，当成平常的防抖即可
-          debounce.delayMs += debounce.waitMs
-          debounce.expectExecTimeMs = currentTimeMs + debounce.waitMs
-          debounce.timerId = setTimeout(() => {
-            debounce.delayMs = 0
-            doIt()
-          }, debounce.waitMs)
+          doNormalDebounce()
         }
       }
     }

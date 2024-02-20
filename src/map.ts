@@ -10,14 +10,14 @@ export class CollectionMap<M extends Record<any, any>> {
   }
 
   set = <K extends keyof M>(key: K, value: M[K]) => {
-    const result = !this.#map.has(key)
+    const result = !this.has(key)
     this.#map.set(key, value)
     return result
   }
 
-  delete = <K extends keyof M>(key: K): boolean => {
-    return this.#map.delete(key)
-  }
+  // delete = <K extends keyof M>(key: K): boolean => {
+  //   return this.#map.delete(key)
+  // }
 
   clear = () => {
     this.#map.clear()
