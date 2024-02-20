@@ -158,7 +158,7 @@ export type EventStreamStrategy = {
 
 type ListenerTimeOptions = {
   waitMs: number
-  maxWaitTime?: number
+  maxWaitMs?: number
 }
 
 export type ListenerOptions = {
@@ -170,7 +170,9 @@ export type ListenerConfig = {
   lastEmitMs: number
   debounce?: ListenerTimeOptions & {
     timerId: number | NodeJS.Timeout
-    maxWaitTime: number
+    expectExecTimeMs: number
+    delayMs: number
+    maxWaitMs: number
   }
   throttle?: ListenerTimeOptions
 }

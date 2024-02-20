@@ -137,7 +137,9 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
       if (debounceWaitMs !== 0) {
         config.debounce = {
           waitMs: debounceWaitMs,
-          maxWaitTime: options.debounce?.maxWaitTime ?? 0,
+          maxWaitMs: options.debounce?.maxWaitMs ?? 0,
+          expectExecTimeMs: 0,
+          delayMs: 0,
           timerId: 0,
         }
       }
@@ -554,56 +556,80 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     const config = configAlias
 
     const doIt = () => {
+      config.lastEmitMs = getCurrentTimeMs()
       // @ts-ignore
       handler(...args)
     }
 
     const { debounce, throttle } = config
 
-    const doDebounce = () => {
-      if (!debounce) return
+    if (!debounce && !throttle) return
 
-      clearTimeout(debounce.timerId)
-      debounce.timerId = setTimeout(() => {
-        config.lastEmitMs = getCurrentTimeMs()
-        doIt()
-      }, debounce.waitMs)
-    }
-
-    if (debounce?.waitMs && throttle?.waitMs) {
-      // if debounce.waitMs is large than throttle.waitMs , throttle is useless
-      if (debounce.waitMs > throttle.waitMs) {
-        doDebounce()
-      } else {
-        // if debounce.waitMs reach  but throttle is not reach, wait util throttle is reach, then emit
-        // is any new emit break this process , we do debounce again
-        const currentTimeMs = getCurrentTimeMs()
-        clearTimeout(debounce.timerId)
-        const throttleLastEmitMs = config.lastEmitMs === 0 ? currentTimeMs : config.lastEmitMs
-        const nextThrottleEmitMs = throttleLastEmitMs + throttle.waitMs
-        const debounceEmitMs = currentTimeMs + debounce.waitMs
-
-        const callback = () => {
-          config.lastEmitMs = getCurrentTimeMs()
-          doIt()
-        }
-
-        if (nextThrottleEmitMs > debounceEmitMs) {
-          debounce.timerId = setTimeout(callback, nextThrottleEmitMs - currentTimeMs)
-        } else {
-          debounce.timerId = setTimeout(callback, debounce.waitMs)
-        }
-      }
-    } else if (debounce) {
-      doDebounce()
-    } else if (throttle) {
+    if (!debounce) {
+      // do throttle
       const currentTimeMs = getCurrentTimeMs()
-      if (config.lastEmitMs === 0 || currentTimeMs - config.lastEmitMs > throttle.waitMs) {
+      if (config.lastEmitMs === 0 || currentTimeMs - config.lastEmitMs >= throttle!.waitMs) {
         doIt()
-        config.lastEmitMs = currentTimeMs
       }
     } else {
-      doIt()
+      // do debounce and throttle together
+      // when will function be call ?
+      clearTimeout(debounce.timerId)
+      const currentTimeMs = getCurrentTimeMs()
+
+      if (!debounce.delayMs || !debounce.maxWaitMs) {
+        // record delayMs
+        debounce.delayMs += debounce.waitMs
+        debounce.expectExecTimeMs = currentTimeMs + debounce.waitMs
+        debounce.timerId = setTimeout(() => {
+          debounce.delayMs = 0
+          doIt()
+        }, debounce.waitMs)
+
+        return
+      }
+
+      if (debounce.delayMs && debounce.maxWaitMs) {
+        // function be delay, calculate if reach maxWaitMs;
+        let currentDelayMs: number
+        if (debounce.expectExecTimeMs > currentTimeMs) {
+          currentDelayMs = debounce.delayMs - (debounce.expectExecTimeMs - currentTimeMs)
+        } else {
+          currentDelayMs = debounce.delayMs + (currentTimeMs - debounce.expectExecTimeMs)
+        }
+
+        if (currentDelayMs >= debounce.maxWaitMs) {
+          // 超时了，不再延长
+          debounce.delayMs = 0
+          doIt()
+        } else if (currentDelayMs + debounce.waitMs >= debounce.maxWaitMs) {
+          const waitMs = debounce.maxWaitMs - currentDelayMs
+
+          const MIN_ALLOW_DELAY_MS = 1
+
+          if (waitMs >= MIN_ALLOW_DELAY_MS) {
+            // 延长到最大的限制再执行
+            debounce.delayMs = debounce.maxWaitMs
+            debounce.expectExecTimeMs = currentTimeMs + waitMs
+            debounce.timerId = setTimeout(() => {
+              debounce.delayMs = 0
+              doIt()
+            }, waitMs)
+          } else {
+            // 没有必要再推移了
+            debounce.delayMs = 0
+            doIt()
+          }
+        } else {
+          // 不可能触发限制，当成平常的防抖即可
+          debounce.delayMs += debounce.waitMs
+          debounce.expectExecTimeMs = currentTimeMs + debounce.waitMs
+          debounce.timerId = setTimeout(() => {
+            debounce.delayMs = 0
+            doIt()
+          }, debounce.waitMs)
+        }
+      }
     }
   }
 

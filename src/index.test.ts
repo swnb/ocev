@@ -864,7 +864,6 @@ test.concurrent('test eventReadableStream strategy replace', async () => {
     const { value: v, done } = await reader.read()
 
     expect(done).toBe(false)
-
     if (!done) {
       const { event, value } = v
       if (count % 2 === 0) {
@@ -894,7 +893,7 @@ test('test listener options debounce', done => {
           expect(time).toBeGreaterThan(originTime)
           expect(div.dataset['count']).toBe('60')
 
-          expect(Date.now() - time).toBeGreaterThan(500)
+          expect(Date.now() - time).toBeGreaterThanOrEqual(500)
           expect(Date.now() - time).toBeLessThan(600)
         } catch (error) {
           done(error)
@@ -956,6 +955,59 @@ test('test listener options debounce', done => {
     })
 
     expect(emitTimes).toBe(2)
+  }
+
+  fn().then(done).catch(done)
+})
+
+test('test listener options debounce maxTime', done => {
+  const fn = async () => {
+    const div = document.createElement('div')
+    const divEventProxy = EventProxy.new(div)
+
+    let emitTimes = 0
+
+    let time = Date.now()
+    divEventProxy.on(
+      'click',
+      () => {
+        emitTimes += 1
+        const now = Date.now()
+
+        try {
+          expect(now - time).toBeGreaterThanOrEqual(100)
+          expect(now - time).toBeLessThanOrEqual(250)
+          time = now
+        } catch (error) {
+          done(error)
+        }
+      },
+      {
+        debounce: {
+          waitMs: 100,
+          maxWaitMs: 200,
+        },
+      },
+    )
+
+    let count = 0
+    const timerId = setInterval(() => {
+      count += 1
+      div.click()
+      div.dataset['count'] = count.toString()
+      if (count === 40) {
+        clearInterval(timerId)
+      }
+    }, 50)
+
+    const timeMark = Date.now()
+    await divEventProxy.waitUtil('click', {
+      where() {
+        return count >= 40
+      },
+    })
+
+    expect(emitTimes).toBeGreaterThanOrEqual(Math.floor((Date.now() - timeMark) / 200))
   }
 
   fn().then(done).catch(done)
@@ -1035,7 +1087,7 @@ test('test listener options throttle', done => {
 //         emitTimes += 1
 //         try {
 //           if (emitTimes > 1) {
-//             expect(Date.now() - time).toBeGreaterThan(1000)
+//             expect(Date.now() - time).toBeGreaterThanOrEqual(1000)
 //             expect(Date.now() - time).toBeLessThan(1300)
 //           }
 //           time = Date.now()
