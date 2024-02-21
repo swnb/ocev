@@ -33,6 +33,10 @@ type EventHandlerMap = {
   ev2: (v1: number, v2: string) => void
 }
 
+function createProxy<T extends keyof HTMLElementTagNameMap>(tag: T) {
+  return EventProxy.new(document.createElement(tag))
+}
+
 test.concurrent('test sync event listenerCount', () => {
   const eventEmitter = SyncEvent.new<EventHandlerMap>()
   let cancelAll = eventEmitter.on('ev1', () => {}).on('ev2', () => {})
@@ -283,6 +287,85 @@ test.concurrent('test sync event bind for global', async () => {
   expect(clickCount).toBe(2)
 })
 
+test.concurrent('test cancel listener', async () => {
+  const sectionEventProxy = createProxy('section')
+  let emitCount = 0
+
+  sectionEventProxy.proxyAllEvent()
+
+  const cancel = sectionEventProxy.any((event, ..._args) => {
+    expect(event).toBe('click')
+    emitCount += 1
+  })
+
+  sectionEventProxy.element.dispatchEvent(new Event('click'))
+
+  await new Promise(res => {
+    setTimeout(res, 1000)
+  })
+
+  expect(sectionEventProxy.listenerCount()).toBe(1)
+
+  cancel()
+
+  sectionEventProxy.element.dispatchEvent(new Event('click'))
+
+  expect(emitCount).toBe(1)
+  expect(sectionEventProxy.listenerCount()).toBe(0)
+
+  sectionEventProxy
+    .on('click', () => {
+      emitCount += 1
+    })
+    .on('click', () => {
+      emitCount += 1
+    })
+    .on('drop', () => {
+      emitCount += 1
+    })
+
+  sectionEventProxy.element.dispatchEvent(new Event('click'))
+
+  expect(sectionEventProxy.listenerCount()).toBe(3)
+  expect(sectionEventProxy.listenerCount('click')).toBe(2)
+  expect(sectionEventProxy.listenerCount('drop')).toBe(1)
+
+  expect(emitCount).toBe(3)
+
+  sectionEventProxy.offAll('click')
+
+  sectionEventProxy.element.dispatchEvent(new Event('click'))
+  expect(emitCount).toBe(3)
+  sectionEventProxy.element.dispatchEvent(new Event('drop'))
+  expect(emitCount).toBe(4)
+
+  expect(sectionEventProxy.listenerCount()).toBe(1)
+  expect(sectionEventProxy.listenerCount('click')).toBe(0)
+  expect(sectionEventProxy.listenerCount('drop')).toBe(1)
+
+  sectionEventProxy.on('drag', () => {
+    emitCount += 1
+  })
+
+  sectionEventProxy.element.dispatchEvent(new Event('drag'))
+  expect(emitCount).toBe(5)
+  expect(sectionEventProxy.listenerCount()).toBe(2)
+  expect(sectionEventProxy.listenerCount('click')).toBe(0)
+  expect(sectionEventProxy.listenerCount('drop')).toBe(1)
+
+  sectionEventProxy.offAll()
+  sectionEventProxy.element.dispatchEvent(new Event('drag'))
+  sectionEventProxy.element.dispatchEvent(new Event('click'))
+  sectionEventProxy.element.dispatchEvent(new Event('drag'))
+
+  expect(emitCount).toBe(5)
+
+  expect(sectionEventProxy.listenerCount()).toBe(0)
+  expect(sectionEventProxy.listenerCount('click')).toBe(0)
+  expect(sectionEventProxy.listenerCount('drop')).toBe(0)
+  expect(sectionEventProxy.listenerCount('drag')).toBe(0)
+})
+
 test.concurrent('test waitUtilAll', async () => {
   const globalEventProxyAgent = EventProxy.new(global)
 
@@ -312,7 +395,7 @@ test.concurrent('test waitUtilAll', async () => {
 
   expect(ev2[0].type).toBe('focus')
 
-  const error = new Error('clickHappend')
+  const error = new Error('click happened')
 
   const p = globalEventProxyAgent
     .waitUtilAll([
@@ -1072,66 +1155,3 @@ test('test listener options throttle', done => {
 
   fn().then(done).catch(done)
 })
-
-// test('test listener options throttle and debounce', done => {
-//   const fn = async () => {
-//     const div = document.createElement('div')
-//     const divEventProxy = EventProxy.new(div)
-
-//     let emitTimes = 0
-//     const originTime = Date.now()
-//     let time = Date.now()
-//     divEventProxy.on(
-//       'click',
-//       () => {
-//         emitTimes += 1
-//         try {
-//           if (emitTimes > 1) {
-//             expect(Date.now() - time).toBeGreaterThanOrEqual(1000)
-//             expect(Date.now() - time).toBeLessThan(1300)
-//           }
-//           time = Date.now()
-//         } catch (error) {
-//           done(error)
-//         }
-//       },
-//       {
-//         throttle: {
-//           waitMs: 500,
-//         },
-//         debounce: {
-//           waitMs: 200,
-//         },
-//       },
-//     )
-
-//     let count = 0
-//     let timerId = setInterval(() => {
-//       count += 1
-//       div.click()
-//       div.dataset['count'] = count.toString()
-//       if (count === 60) {
-//         clearInterval(timerId)
-//       }
-//     }, 50)
-
-//     await divEventProxy.waitUtil('click', {
-//       where() {
-//         return count >= 60
-//       },
-//     })
-
-//     expect(emitTimes).toBe(Math.floor((Date.now() - originTime) / 1000))
-
-//     timerId = setInterval(() => {
-//       count += 1
-//       div.click()
-//       div.dataset['count'] = count.toString()
-//       if (count === 60) {
-//         clearInterval(timerId)
-//       }
-//     }, 200)
-//   }
-
-//   fn().then(done).catch(done)
-// })
