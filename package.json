@@ -1,7 +1,7 @@
 {
-  "name": "@swnb/event",
+  "name": "ocev",
   "version": "0.18.0",
-  "description": "event module",
+  "description": "event module support promise/stream and can proxy all web element",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -16,7 +16,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/swnb/event-ts.git"
+    "url": "git+https://github.com/swnb/ocev.git"
   },
   "keywords": [
     "event"
@@ -24,9 +24,9 @@
   "author": "swnb",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/swnb/event-ts/issues"
+    "url": "https://github.com/swnb/ocev/issues"
   },
-  "homepage": "https://github.com/swnb/event-ts#readme",
+  "homepage": "https://github.com/swnb/ocev#readme",
   "devDependencies": {
     "@babel/preset-typescript": "^7.22.5",
     "@swnb/fabric": "^0.7.1",

@@ -1,15 +1,21 @@
-# @swnb/event
+# OCEV
+
+![Branches](./badges/coverage-branches.svg)
+![Functions](./badges/coverage-functions.svg)
+![Lines](./badges/coverage-lines.svg)
+![Statements](./badges/coverage-statements.svg)
+![Jest coverage](./badges/coverage-jest%20coverage.svg)
 
 > pub/sub module implement with typescript
 
 ## install
 
 ```shell
-npm install @swnb/event
+npm install ocev
 # or
-yarn add @swnb/event
+yarn add ocev
 # or
-pnpm i @swnb/event
+pnpm i ocev
 ```
 
 
@@ -54,10 +60,10 @@ useEffect(() => {
 }, [target])
 ```
 
-when you use `@swnb/event`
+when you use `ocev`
 
 ```tsx example.tsx
-import { EventProxy } from "@swnb/event"
+import { EventProxy } from "ocev"
 useEffect(
   () =>
     EventProxy.new(target)
@@ -96,10 +102,10 @@ async function connect(url: string, timeout: number) {
 }
 ```
 
-when you use `@swnb/event`
+when you use `ocev`
 
 ```typescript websocket.ts
-import { EventProxy } from "@swnb/event"
+import { EventProxy } from "ocev"
 
 async function connect(url: string, timeout: number) {
   const ws = new WebSocket(url)
@@ -113,7 +119,7 @@ async function connect(url: string, timeout: number) {
 consider a more complex scenario where you create a **webrtc** connection and wait for the connection to 'connected'
 
 ```typescript rtc.ts
-import { EventProxy } from "@swnb/event"
+import { EventProxy } from "ocev"
 
 async function connect(timeout: number) {
   const connection = new RTCPeerConnection()
@@ -138,7 +144,7 @@ use 'where' to select the 'connectionState' you want
 if you want to know what events are fired when 'video' is played, consider writing this
 
 ```tsx video.ts
-import { EventProxy } from "@swnb/event"
+import { EventProxy } from "ocev"
 // support type hint !
 EventProxy.new(videoDom, { proxyAllEvent: true }).any((eventName, ...args) => {
   console.log(eventName)
@@ -148,7 +154,7 @@ EventProxy.new(videoDom, { proxyAllEvent: true }).any((eventName, ...args) => {
 in `react`
 
 ```tsx video.tsx
-import { EventProxy } from "@swnb/event"
+import { EventProxy } from "ocev"
 import { useEffect, useRef } from "react"
 
 function Video() {
@@ -174,7 +180,7 @@ open the console and you will see the order and time of all the 'video' events
 
 ## concept
 
-there are two main class in `@swnb/event`, `SyncEvent`, `EventProxy`
+there are two main class in `ocev`, `SyncEvent`, `EventProxy`
 
 ### SyncEvent
 
@@ -182,7 +188,7 @@ define event handler map
 
 ```typescript
 
-import { SyncEvent } from '@swnb/event'
+import { SyncEvent } from 'ocev'
 
 // define event handler type
 
@@ -307,7 +313,7 @@ select condition
 on top of that, you can use it to bind some web objects, in `react` you can do that with no performance cost
 
 ```typescript
-import { EventProxy } from "@swnb/event"
+import { EventProxy } from "ocev"
 
 useEffect(() => {
     return EventProxy.new(window)
@@ -324,7 +330,7 @@ use `EventProxy` to observe all events triggered in the internal `video`
 > initializing `EventProxy` with `proxyAllEvent` is not that cheap, it's better to cache it
 
 ```tsx video.tsx
-import { EventProxy } from "@swnb/event"
+import { EventProxy } from "ocev"
 import { useEffect, useRef } from "react"
 
 function Video() {
