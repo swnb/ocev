@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/member-ordering */
 import type { UnionEventHandler, GetAddEventListenerKeys, PrettierListenerKey } from './types'
 import type { ISyncEvent, ListenerOptions } from '@/types'
 import { InnerHookAbleSyncEvent } from '@/inner-sync-event'
@@ -7,6 +8,9 @@ export interface CanAddEventListener {
   removeEventListener: (eventName: string, callback: (...args: any[]) => any) => any
 }
 
+/**
+ * Options for configuring the behavior of the EventProxy class.
+ */
 type Options = {
   proxyAllEvent?: boolean
   addEventListenerOptions?: AddEventListenerOptions | boolean
@@ -46,9 +50,9 @@ export class EventProxy<T extends CanAddEventListener>
 
   any = this.#syncEvent.any
 
-  subscriber = this.#syncEvent.subscriber
+  // subscriber = this.#syncEvent.subscriber
 
-  publisher = this.#syncEvent.publisher
+  // publisher = this.#syncEvent.publisher
 
   // rewrite all methods , this is the cost for not use extends
 
@@ -66,6 +70,11 @@ export class EventProxy<T extends CanAddEventListener>
 
   // #removeEvenListenerQueue: (readonly [string, (...args: any[]) => void])[] = []
 
+  /**
+   * Constructs a new instance of EventProxy.
+   * @param element The object to proxy events for.
+   * @param options Options for configuring the behavior of the EventProxy instance.
+   */
   constructor(element: T, options: Options = {}) {
     const { proxyAllEvent = false, addEventListenerOptions } = options
 
@@ -80,14 +89,30 @@ export class EventProxy<T extends CanAddEventListener>
     this.#setupWatcherForBindElementEvent()
   }
 
+  /**
+   * Retrieves the element
+   */
   get element() {
     return this.#element
   }
 
+  /**
+   * Static factory method to create a new EventProxy instance.
+   * @param element The object to proxy events for.
+   * @param options Options for configuring the behavior of the EventProxy instance.
+   * @returns A new instance of EventProxy.
+   */
   static new<T extends CanAddEventListener>(element: T, options?: Options) {
     return new EventProxy(element, options)
   }
 
+  /**
+   * Adds an event listener to the proxied object.
+   * @param type The type of event to listen for.
+   * @param callback The callback function to invoke when the event is triggered.
+   * @param options Options for configuring the listener.
+   * @returns A function to remove the event listener.
+   */
   on: ISyncEvent<UnionEventHandler<T, GetAddEventListenerKeys<T>>>['on'] = (
     type,
     callback,
@@ -100,6 +125,11 @@ export class EventProxy<T extends CanAddEventListener>
     return this.#syncEvent.on(type, callback, options)
   }
 
+  /**
+   * Gets the number of listeners for a specific event type.
+   * @param event Optional. The event type to get the listener count for. If not specified, returns the total listener count.
+   * @returns The number of listeners for the specified event type, or the total listener count if no event type is specified.
+   */
   listenerCount = (event?: PrettierListenerKey<GetAddEventListenerKeys<T>>) => {
     if (event) {
       return this.#syncEvent.listenerCount(event)
@@ -107,6 +137,10 @@ export class EventProxy<T extends CanAddEventListener>
     return this.#syncEvent.listenerCount() - 2
   }
 
+  /**
+   * Removes all event listeners for the specified event type, or all event listeners if no event type is specified.
+   * @param event Optional. The event type to remove listeners for.
+   */
   offAll = <K extends PrettierListenerKey<GetAddEventListenerKeys<T>>>(event?: K) => {
     if (event) {
       const registerInfo = this.#alreadyRegisterEventList.get(event)
@@ -123,18 +157,23 @@ export class EventProxy<T extends CanAddEventListener>
       this.#syncEvent.offAll()
       this.#setupWatcherForBindElementEvent()
     }
-
-    return this
   }
 
+  /**
+   * Destroys the EventProxy instance by removing all event listeners.
+   */
   destroy = () => {
-    this.offAll()
+    this.#alreadyRegisterEventList.forEach(({ callback }, key) => {
+      this.#element.removeEventListener(key, callback)
+    })
+    this.#alreadyRegisterEventList.clear()
+    this.#syncEvent.offAll()
   }
 
-  emit = () => {
-    return this
-  }
-
+  /**
+   * Proxies all events from the element.
+   * @returns The EventProxy instance.
+   */
   proxyAllEvent = (): this => {
     if (!this.#isAllEventRegister) {
       this.#proxyElement(this.element)
