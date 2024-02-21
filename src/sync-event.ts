@@ -14,13 +14,14 @@ import type {
   WaitUtilCommonReturnValue,
   ListenerOptions,
   ListenerConfig,
+  SyncEventOptions,
 } from './types'
 import { errors } from './index'
 import { CollectionMap } from './map'
 import { createListenerLinker } from './linkable-listener'
 import { RingBuffer } from './ring-buffer'
 import { CollectionSet } from './set'
-import { getCurrentTimeMs } from './time'
+// import { getCurrentTimeMs } from './time'
 
 /**
  * SyncEvent support register , emit, cancel and promise/stream
@@ -55,7 +56,9 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
 
   #listenerConfigMap = new Map<M[keyof M], ListenerConfig>()
 
-  constructor() {
+  #getCurrentTimeMs
+
+  constructor(options?: SyncEventOptions) {
     this.#subscriber = Object.freeze({
       on: this.on,
       any: this.any,
@@ -69,6 +72,16 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
       createEventReadableStream: this.createEventReadableStream,
     })
     this.#publisher = Object.freeze({ emit: this.emit })
+
+    if (
+      options?.useDateAsTimeTool ||
+      typeof performance !== 'object' ||
+      typeof performance.now !== 'function'
+    ) {
+      this.#getCurrentTimeMs = () => Date.now()
+    } else {
+      this.#getCurrentTimeMs = () => performance.now()
+    }
   }
 
   /**
@@ -293,6 +306,10 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     event: K,
     config: WaitUtilConfig<Arguments<M[K]>> = {},
   ): Promise<Arguments<M[K]>> => {
+    if (!event) {
+      throw Error('event must be specified')
+    }
+
     const { timeout = 0, cancelRef, where, mapToError } = config
 
     return new Promise<Arguments<M[K]>>((res, rej) => {
@@ -346,8 +363,12 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
         this.off(event, callback)
         rej(errors.CancelError)
       }
+
       // eslint-disable-next-line no-param-reassign
-      if (cancelRef && typeof cancelRef === 'object') cancelRef.current = cancel
+      if (cancelRef && typeof cancelRef === 'object') {
+        cancelRef.current = cancel
+      }
+
       if (timeout > 0) {
         timeID = setTimeout(() => {
           rej(errors.TimeoutError)
@@ -565,6 +586,9 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
         if (!this.#validNumber(debounce.maxWaitMs) || debounce.maxWaitMs <= 0) {
           throw Error('debounce.maxWaitMs must be number and large than zero')
         }
+        if (debounce.maxWaitMs <= debounce.waitMs) {
+          throw Error('debounce.maxWaitMs must be large than debounce.waitMs')
+        }
         maxWaitMs = debounce.maxWaitMs
       }
 
@@ -598,7 +622,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     const config = configAlias
 
     const doIt = () => {
-      config.lastEmitMs = getCurrentTimeMs()
+      config.lastEmitMs = this.#getCurrentTimeMs()
       // @ts-ignore
       handler(...args)
     }
@@ -609,7 +633,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
 
     if (!debounce) {
       // do throttle
-      const currentTimeMs = getCurrentTimeMs()
+      const currentTimeMs = this.#getCurrentTimeMs()
       if (config.lastEmitMs === 0 || currentTimeMs - config.lastEmitMs >= throttle!.waitMs) {
         doIt()
       }
@@ -617,7 +641,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
       // do debounce and throttle together
       // when will function be call ?
       clearTimeout(debounce.timerId)
-      const currentTimeMs = getCurrentTimeMs()
+      const currentTimeMs = this.#getCurrentTimeMs()
 
       const doItRightNow = () => {
         debounce.delayMs = 0
