@@ -1,4 +1,10 @@
-import type { HandlerMap, ISyncEvent, LinkableListener, ListenerOptions } from './types'
+import type {
+  HandlerMap,
+  ISyncEvent,
+  LinkableListener,
+  ListenerOptions,
+  SyncEventOptions,
+} from './types'
 import { createListenerLinker } from './linkable-listener'
 import { SyncEvent } from './sync-event'
 
@@ -6,8 +12,8 @@ export class InnerHookAbleSyncEvent<M extends HandlerMap>
   extends SyncEvent<M>
   implements ISyncEvent<M>
 {
-  constructor() {
-    super()
+  constructor(options?: SyncEventOptions) {
+    super(options)
 
     // can't use super because is is bug of typescript
     const superOn = this.on
@@ -17,14 +23,14 @@ export class InnerHookAbleSyncEvent<M extends HandlerMap>
     this.on = <K extends keyof M>(
       type: K,
       handler: M[K],
-      options?: ListenerOptions,
+      listenerOptions?: ListenerOptions,
     ): LinkableListener<M> => {
       if (type !== '__onSyncEventListener__' && type !== '__offSyncEventListener__') {
         // @ts-ignore
         this.emit('__onSyncEventListener__', type)
       }
 
-      const cancelFunction = superOn(type, handler, options)
+      const cancelFunction = superOn(type, handler, listenerOptions)
 
       return createListenerLinker(this.on, this.once, [cancelFunction])
     }
@@ -41,7 +47,7 @@ export class InnerHookAbleSyncEvent<M extends HandlerMap>
   }
 
   // factory pattern
-  static new<M extends HandlerMap>() {
-    return new InnerHookAbleSyncEvent<M>()
+  static new<M extends HandlerMap>(options?: SyncEventOptions) {
+    return new InnerHookAbleSyncEvent<M>(options)
   }
 }

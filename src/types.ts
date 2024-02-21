@@ -296,6 +296,10 @@ export type ListenerConfig = {
   }
 }
 
+export type SyncEventOptions = {
+  useDateAsTimeTool?: boolean
+}
+
 export type OmitUndefinedKeyInObject<V> = V extends Record<any, any>
   ? {
       [K in keyof V]-?: OmitUndefinedKeyInObject<V[K]>

@@ -9,6 +9,7 @@ export type {
   ListenerOptions,
   WaitUtilConfig,
   EventStreamStrategy,
+  SyncEventOptions,
 } from './types'
 
 export * as errors from './errors'
