@@ -15,7 +15,7 @@ jobs:
       # Necessary to generate the coverage report.
       # Make sure to add 'json-summary' to the coverageReporters in jest options
       - name: Tests
-        run: yarn run test:coverage
+        run: yarn && yarn run test:coverage
       - name: Generating coverage badges
         uses: jpb06/jest-badges-action@latest
         with:
