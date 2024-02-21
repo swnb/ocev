@@ -205,7 +205,6 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
    *
    * @template K - The type representing keys of the handler map.
    * @param {K} [event] - The event for which handlers should be removed. If not provided, all handlers are cleared.
-   * @returns {this} - The instance of the event emitter for chaining.
    */
   public offAll = <K extends keyof M>(event?: K): this => {
     if (event) {
