@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/member-ordering */
 import type { UnionEventHandler, GetAddEventListenerKeys, PrettierListenerKey } from './types'
-import type { ISyncEvent, ListenerOptions } from '@/types'
+import type { ISyncEvent, ListenerOptions, SyncEventOptions } from '@/types'
 import { InnerHookAbleSyncEvent } from '@/inner-sync-event'
 
 export interface CanAddEventListener {
@@ -14,7 +14,7 @@ export interface CanAddEventListener {
 type Options = {
   proxyAllEvent?: boolean
   addEventListenerOptions?: AddEventListenerOptions | boolean
-}
+} & SyncEventOptions
 
 export class EventProxy<T extends CanAddEventListener>
   implements
@@ -25,30 +25,27 @@ export class EventProxy<T extends CanAddEventListener>
 {
   #addEventListenerOptions?: AddEventListenerOptions | boolean
 
-  #syncEvent = InnerHookAbleSyncEvent.new<UnionEventHandler<T, GetAddEventListenerKeys<T>>>()
+  #syncEvent
 
   #isAllEventRegister = false
 
-  off = this.#syncEvent.off
+  off
 
-  once = this.#syncEvent.once
+  once
 
-  waitUtil = this.#syncEvent.waitUtil
+  waitUtil
 
-  waitUtilRace = this.#syncEvent.waitUtilRace
+  waitUtilRace
 
-  waitUtilAll = this.#syncEvent.waitUtilAll
+  waitUtilAll
 
-  waitUtilAny = this.#syncEvent.waitUtilAny
+  waitUtilAny
 
-  createEventReadableStream = this.#syncEvent.createEventReadableStream
+  createEventReadableStream
 
-  createEventStream = this.#syncEvent.createEventStream
+  createEventStream
 
-  // createObserver = this.#syncEvent.createObserver
-  // createPublisher = this.#syncEvent.createPublisher
-
-  any = this.#syncEvent.any
+  any
 
   // subscriber = this.#syncEvent.subscriber
 
@@ -76,7 +73,20 @@ export class EventProxy<T extends CanAddEventListener>
    * @param options Options for configuring the behavior of the EventProxy instance.
    */
   constructor(element: T, options: Options = {}) {
-    const { proxyAllEvent = false, addEventListenerOptions } = options
+    const { proxyAllEvent = false, addEventListenerOptions, useDateAsTimeTool } = options
+    this.#syncEvent = InnerHookAbleSyncEvent.new<UnionEventHandler<T, GetAddEventListenerKeys<T>>>({
+      useDateAsTimeTool: !!useDateAsTimeTool,
+    })
+
+    this.off = this.#syncEvent.off
+    this.once = this.#syncEvent.once
+    this.waitUtil = this.#syncEvent.waitUtil
+    this.waitUtilRace = this.#syncEvent.waitUtilRace
+    this.waitUtilAll = this.#syncEvent.waitUtilAll
+    this.waitUtilAny = this.#syncEvent.waitUtilAny
+    this.createEventReadableStream = this.#syncEvent.createEventReadableStream
+    this.createEventStream = this.#syncEvent.createEventStream
+    this.any = this.#syncEvent.any
 
     this.#addEventListenerOptions = addEventListenerOptions
 
