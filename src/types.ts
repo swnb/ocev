@@ -242,7 +242,7 @@ export type TransformEventList2ArgumentsList<
 export interface LinkableListener<M> {
   (): void
   once: <K extends keyof M>(type: K, handler: M[K]) => LinkableListener<M>
-  on: <K extends keyof M>(type: K, handler: M[K]) => LinkableListener<M>
+  on: <K extends keyof M>(type: K, handler: M[K], options?: ListenerOptions) => LinkableListener<M>
 }
 
 export type ExtractHandlerMapArgumentsFromEventListItem<
