@@ -7,6 +7,8 @@ export type {
   PublisherAccessControl,
   EventListItem,
   ListenerOptions,
+  WaitUtilConfig,
+  EventStreamStrategy,
 } from './types'
 
 export * as errors from './errors'
