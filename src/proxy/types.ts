@@ -8,7 +8,7 @@ export type GetAddEventListenerKeys<E, Keys extends keyof E = keyof E> = Keys ex
     : never
   : never
 
-type PrettierListenerKey<Key> = Key extends `on${infer SubString}` ? SubString : never
+export type PrettierListenerKey<Key> = Key extends `on${infer SubString}` ? SubString : never
 
 export type UnionEventHandler<E, Keys extends keyof E> = {
   [key in Keys as PrettierListenerKey<key>]: E[key] extends ((...args: infer Args) => any) | null
