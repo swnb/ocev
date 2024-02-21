@@ -1,4 +1,4 @@
-import type { UnionEventHandler, GetAddEventListenerKeys } from './types'
+import type { UnionEventHandler, GetAddEventListenerKeys, PrettierListenerKey } from './types'
 import type { ISyncEvent, ListenerOptions } from '@/types'
 import { InnerHookAbleSyncEvent } from '@/inner-sync-event'
 
@@ -16,18 +16,14 @@ export class EventProxy<T extends CanAddEventListener>
   implements
     Omit<
       ISyncEvent<UnionEventHandler<T, GetAddEventListenerKeys<T>>>,
-      'publisher' | 'emit' | 'createPublisher' | 'observer' | 'any'
+      'publisher' | 'emit' | 'subscriber' | 'any'
     >
 {
   #addEventListenerOptions?: AddEventListenerOptions | boolean
 
   #syncEvent = InnerHookAbleSyncEvent.new<UnionEventHandler<T, GetAddEventListenerKeys<T>>>()
 
-  #proxyAllEvent = false
-
-  interceptEmit = this.#syncEvent.interceptEmit
-
-  unInterceptEmit = this.#syncEvent.unInterceptEmit
+  #isAllEventRegister = false
 
   off = this.#syncEvent.off
 
@@ -45,11 +41,14 @@ export class EventProxy<T extends CanAddEventListener>
 
   createEventStream = this.#syncEvent.createEventStream
 
-  createObserver = this.#syncEvent.createObserver
+  // createObserver = this.#syncEvent.createObserver
+  // createPublisher = this.#syncEvent.createPublisher
 
   any = this.#syncEvent.any
 
-  listenerCount = this.#syncEvent.listenerCount
+  subscriber = this.#syncEvent.subscriber
+
+  publisher = this.#syncEvent.publisher
 
   // rewrite all methods , this is the cost for not use extends
 
@@ -65,7 +64,7 @@ export class EventProxy<T extends CanAddEventListener>
     }
   > = new Map()
 
-  #removeEvenListenerQueue: (readonly [string, (...args: any[]) => void])[] = []
+  // #removeEvenListenerQueue: (readonly [string, (...args: any[]) => void])[] = []
 
   constructor(element: T, options: Options = {}) {
     const { proxyAllEvent = false, addEventListenerOptions } = options
@@ -74,42 +73,11 @@ export class EventProxy<T extends CanAddEventListener>
 
     this.#element = element
 
-    this.#proxyAllEvent = proxyAllEvent
-
     if (proxyAllEvent) {
-      this.#proxyElement(element)
-      return
+      this.proxyAllEvent()
     }
 
-    // @ts-ignore
-    this.#syncEvent.on('__onSyncEventListener__', type => {
-      if (!this.#alreadyRegisterEventList.has(type)) {
-        const callback = (...args: any[]) => {
-          this.#syncEvent.emit(type, ...(args as any))
-        }
-        this.#element.addEventListener(type, callback)
-        this.#alreadyRegisterEventList.set(type, {
-          count: 1,
-          callback,
-        })
-      } else {
-        const registerInfo = this.#alreadyRegisterEventList.get(type)!
-        registerInfo.count += 1
-      }
-    })
-
-    // @ts-ignore
-    this.#syncEvent.on('__offSyncEventListener__', type => {
-      const registerInfo = this.#alreadyRegisterEventList.get(type)
-      if (registerInfo) {
-        if (registerInfo.count > 1) {
-          registerInfo.count -= 1
-        } else {
-          this.#alreadyRegisterEventList.delete(type)
-          this.#element.removeEventListener(type, registerInfo.callback)
-        }
-      }
-    })
+    this.#setupWatcherForBindElementEvent()
   }
 
   get element() {
@@ -132,18 +100,47 @@ export class EventProxy<T extends CanAddEventListener>
     return this.#syncEvent.on(type, callback, options)
   }
 
-  offAll = () => {
-    this.#alreadyRegisterEventList.forEach(({ callback }, key) => {
-      this.#element.removeEventListener(key, callback)
-    })
-    return this.#syncEvent.offAll()
+  listenerCount = (event?: PrettierListenerKey<GetAddEventListenerKeys<T>>) => {
+    if (event) {
+      return this.#syncEvent.listenerCount(event)
+    }
+    return this.#syncEvent.listenerCount() - 2
+  }
+
+  offAll = <K extends PrettierListenerKey<GetAddEventListenerKeys<T>>>(event?: K) => {
+    if (event) {
+      const registerInfo = this.#alreadyRegisterEventList.get(event)
+      if (registerInfo) {
+        this.#alreadyRegisterEventList.delete(event)
+        this.#element.removeEventListener(event, registerInfo.callback)
+      }
+      this.#syncEvent.offAll(event)
+    } else {
+      this.#alreadyRegisterEventList.forEach(({ callback }, key) => {
+        this.#element.removeEventListener(key, callback)
+      })
+      this.#alreadyRegisterEventList.clear()
+      this.#syncEvent.offAll()
+      this.#setupWatcherForBindElementEvent()
+    }
+
+    return this
   }
 
   destroy = () => {
     this.offAll()
-    this.#removeEvenListenerQueue.forEach(pair => {
-      this.#element.removeEventListener(pair[0], pair[1])
-    })
+  }
+
+  emit = () => {
+    return this
+  }
+
+  proxyAllEvent = (): this => {
+    if (!this.#isAllEventRegister) {
+      this.#proxyElement(this.element)
+      this.#isAllEventRegister = true
+    }
+    return this
   }
 
   #proxyElement = (element: T) => {
@@ -167,16 +164,43 @@ export class EventProxy<T extends CanAddEventListener>
 
     eventKeys.forEach(key => {
       const emitKey = key.slice(2)
-      const pair = [
-        emitKey,
-        (...args: any[]) => {
-          this.#syncEvent.emit(emitKey as any, ...(args as any))
-        },
-      ] as const
-
-      ;(this.#element.addEventListener as any)(pair[0], pair[1], this.#addEventListenerOptions)
-
-      this.#removeEvenListenerQueue.push(pair)
+      this.#checkAndBindElementEvent(emitKey)
     })
+  }
+
+  #setupWatcherForBindElementEvent = () => {
+    // @ts-ignore
+    this.#syncEvent.on('__onSyncEventListener__', type => {
+      this.#checkAndBindElementEvent(type)
+    })
+
+    // @ts-ignore
+    this.#syncEvent.on('__offSyncEventListener__', type => {
+      const registerInfo = this.#alreadyRegisterEventList.get(type)
+      if (registerInfo) {
+        if (registerInfo.count > 1) {
+          registerInfo.count -= 1
+        } else {
+          this.#alreadyRegisterEventList.delete(type)
+          this.#element.removeEventListener(type, registerInfo.callback)
+        }
+      }
+    })
+  }
+
+  #checkAndBindElementEvent = (type: any) => {
+    if (!this.#alreadyRegisterEventList.has(type)) {
+      const callback = (...args: any[]) => {
+        this.#syncEvent.emit(type, ...(args as any))
+      }
+      ;(this.#element.addEventListener as any)?.(type, callback, this.#addEventListenerOptions)
+      this.#alreadyRegisterEventList.set(type, {
+        count: 1,
+        callback,
+      })
+    } else {
+      const registerInfo = this.#alreadyRegisterEventList.get(type)!
+      registerInfo.count += 1
+    }
   }
 }

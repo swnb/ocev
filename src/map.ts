@@ -15,9 +15,13 @@ export class CollectionMap<M extends Record<any, any>> {
     return result
   }
 
-  // delete = <K extends keyof M>(key: K): boolean => {
-  //   return this.#map.delete(key)
-  // }
+  delete = <K extends keyof M>(key: K): M[K] | undefined => {
+    const value = this.#map.get(key)
+    if (value !== undefined) {
+      this.#map.delete(key)
+    }
+    return value
+  }
 
   clear = () => {
     this.#map.clear()

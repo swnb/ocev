@@ -2,10 +2,10 @@ import type {
   HandlerMap,
   ISyncEvent,
   Arguments,
-  ObserverAccessControl,
-  IAccessControlObserver,
-  PublisherAccessControl,
-  IAccessControlPublisher,
+  // ObserverAccessControl,
+  // IAccessControlObserver,
+  // PublisherAccessControl,
+  // IAccessControlPublisher,
   LinkableListener,
   WaitUtilConfig,
   EventListItem,
@@ -22,64 +22,93 @@ import { RingBuffer } from './ring-buffer'
 import { CollectionSet } from './set'
 import { getCurrentTimeMs } from './time'
 
+/**
+ * SyncEvent support register , emit, cancel and promise/stream
+ * @template M type of all handlers and event
+ */
 export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   #handlerMap = new CollectionMap<{
     [K in keyof M]: CollectionSet<M[K]>
   }>()
 
-  #isInterceptEmit = false
-
   #onceHandlerWrapperMap = new Map<M[keyof M], M[keyof M] & { type: keyof M }>()
 
   #anyHandlerSet = new CollectionSet<(...args: any[]) => any>()
 
-  #observer: Pick<this, 'on' | 'once' | 'off' | 'waitUtil'>
+  #subscriber: Pick<
+    this,
+    | 'on'
+    | 'once'
+    | 'off'
+    | 'any'
+    | 'waitUtil'
+    | 'waitUtilRace'
+    | 'waitUtilAll'
+    | 'waitUtilAny'
+    | 'createEventStream'
+    | 'createEventReadableStream'
+  >
 
-  #publisher: Pick<this, 'emit' | 'interceptEmit' | 'unInterceptEmit'>
+  #publisher: Pick<this, 'emit'>
 
   #listenerCount = 0
 
   #listenerConfigMap = new Map<M[keyof M], ListenerConfig>()
 
   constructor() {
-    this.#observer = Object.freeze({
+    this.#subscriber = Object.freeze({
       on: this.on,
+      any: this.any,
       once: this.once,
       off: this.off,
       waitUtil: this.waitUtil,
+      waitUtilRace: this.waitUtilRace,
+      waitUtilAll: this.waitUtilAll,
+      waitUtilAny: this.waitUtilAny,
+      createEventStream: this.createEventStream,
+      createEventReadableStream: this.createEventReadableStream,
     })
-    this.#publisher = Object.freeze({
-      emit: this.emit,
-      interceptEmit: this.interceptEmit,
-      unInterceptEmit: this.unInterceptEmit,
-    })
+    this.#publisher = Object.freeze({ emit: this.emit })
   }
 
   /**
-   * observer only allow to call method : 'on' | 'once' | 'sequenceOn' | 'cancel' | 'waitUtil'
+   * Observer only allow to call methods below:
+   *| 'on'
+    | 'once'
+    | 'off'
+    | 'any'
+    | 'waitUtil'
+    | 'waitUtilRace'
+    | 'waitUtilAll'
+    | 'waitUtilAny'
+    | 'createEventStream'
+    | 'createEventReadableStream'
    */
-  get observer() {
-    return this.#observer
+  get subscriber() {
+    return this.#subscriber
   }
 
   /**
-   * publisher only allow to call method : 'emit' | 'interceptEmit' | 'unInterceptEmit'
+   * Publisher only allow to call method 'emit'
    */
   get publisher() {
     return this.#publisher
   }
 
-  // factory pattern
-  static new<M extends HandlerMap>() {
+  /**
+   * Create new SyncEvent
+   * @returns {SyncEvent<M>} 新的 SyncEvent 实例
+   * @static
+   */
+  static new<M extends HandlerMap>(): SyncEvent<M> {
     return new SyncEvent<M>()
   }
 
   /**
-   * get listener count by event name
-   * if event is undefined , then return all listenerCount
-   *
-   * @public
-   * @return {number}
+   * Get listener count by event name
+   * If no event name is passed, returns the total number of listeners for all events.
+   * @param {K} event eventName
+   * @returns {number} listener count
    */
   public listenerCount = <K extends keyof M>(event?: K): number => {
     if (event === undefined) {
@@ -89,26 +118,11 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   }
 
   /**
-   * interceptEmit will stop all emit
-   * util unInterceptEmit is called
-   */
-  public interceptEmit = () => {
-    this.#isInterceptEmit = true
-  }
-
-  /**
-   * interceptEmit will resume all emit
-   * nothing will happen if interceptEmit is not called
-   */
-  public unInterceptEmit = () => {
-    this.#isInterceptEmit = true
-  }
-
-  /**
-   *
-   * @param event  event name , same as emit event name
-   * @param handler  callback will run when emit same event name
-   * @return {VoidFunction} function off handler
+   * Register an event handler for the specified event.
+   * @param {K} event Event name
+   * @param {M[K]} handler Event handler callback function
+   * @param {ListenerOptions} [options] Listener options support debounce and throttle , more details in the document
+   * @returns {LinkableListener<M>} Linkable listener object for chaining
    */
   public on = <K extends keyof M>(
     event: K,
@@ -139,8 +153,11 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   }
 
   /**
-   * @param handler  any emit will emit handler
-   * @returns
+   * Add a handler which listen to any emitted event.
+   * this return value of any can't be chained
+   * @template K - The type representing keys of the handler map.
+   * @param {Function} handler - The function to be invoked when any event is emitted.
+   * @returns {Function} - A function that, when called, removes the added handler.
    */
   public any = <K extends keyof M = keyof M>(
     handler: (event: K, ...args: Arguments<M[K]>) => void,
@@ -158,9 +175,12 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   }
 
   /**
-   * @param event event name
-   * @param handler  callback only run one time
-   * @returns
+   * Register a handler to be executed only once when the specified event is emitted.
+   *
+   * @template K - The type representing keys of the handler map.
+   * @param {K} event - The event to listen for.
+   * @param {M[K]} handler - The handler function to be executed when the event is emitted.
+   * @returns {LinkableListener<M>} - An object containing methods to manage the listener.
    */
   public once = <K extends keyof M>(event: K, handler: M[K]): LinkableListener<M> => {
     const handlerWrapper = (...arg: Arguments<M[K]>) => {
@@ -181,26 +201,36 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   }
 
   /**
-   * unregister all callback
-   * @param event event name
-   * @returns {this}
+   * Removes all handlers for the specified event or clears all handlers if no event is specified.
+   *
+   * @template K - The type representing keys of the handler map.
+   * @param {K} [event] - The event for which handlers should be removed. If not provided, all handlers are cleared.
+   * @returns {this} - The instance of the event emitter for chaining.
    */
   public offAll = <K extends keyof M>(event?: K): this => {
     if (event) {
       // FIXME memory leak
+      this.#listenerCount -= this.#handlerMap.delete(event)?.size ?? 0
       this.#handlerMap.set(event, new CollectionSet())
     } else {
       this.#handlerMap.clear()
       this.#onceHandlerWrapperMap.clear()
       this.#anyHandlerSet.clear()
+      this.#listenerCount = 0
     }
-
-    this.#listenerCount = 0
 
     return this
   }
 
-  public off = <K extends keyof M>(event: K, handler: M[K]) => {
+  /**
+   * Removes a specific handler for the specified event.
+   *
+   * @template K - The type representing keys of the handler map.
+   * @param {K} event - The event from which the handler should be removed.
+   * @param {M[K]} handler - The handler function to be removed.
+   * @returns {this} - The instance of the event emitter for chaining.
+   */
+  public off = <K extends keyof M>(event: K, handler: M[K]): this => {
     const handlers = this.#handlerMap.get(event)
     if (handlers) {
       const successDeleted = handlers.delete(handler)
@@ -218,12 +248,15 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     return this
   }
 
-  // emit event and some arguments
-  // all register will call with the arguments
-  public emit = <K extends keyof M>(event: K, ...args: Arguments<M[K]>) => {
-    // 一段时间内不可以监听事件
-    if (this.#isInterceptEmit) return this
-
+  /**
+   * Emits the specified event with the provided arguments, invoking all registered handlers for the event.
+   *
+   * @template K - The type representing keys of the handler map.
+   * @param {K} event - The event to be emitted.
+   * @param {...Arguments<M[K]>} args - The arguments to be passed to the event handlers.
+   * @returns {this} - The instance of the event emitter for chaining.
+   */
+  public emit = <K extends keyof M>(event: K, ...args: Arguments<M[K]>): this => {
     const handlers = this.#handlerMap.get(event)
     if (handlers) {
       handlers.forEach(handler => {
@@ -250,25 +283,17 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   }
 
   /**
-   * waitUil return promise which will resolve util the event name is emit
-   * cancelRef will set current property cancel function
-   * cancelRef is design to avid memory leak
-   * you should call cancelRef.current() when you don't need to await return promise anymore
-   * waitUtil will throw cancel Error when cancelRef.current is called
-   * if method 'where' return false, the event will be ignored
-   * @template K
-   * @param {K} event event name
-   * @param {{
-        timeout?: number default to 0
-        cancelRef?: { current: () => void }
-        where?: (...args: Arguments<M[K]>) => boolean
-      }} [config={}]
-   * @returns {void; }; where?: (...args: any) => boolean; }) => any}
+   * Returns a promise that resolves when the specified event is emitted.
+   *
+   * @template K - The type representing keys of the handler map.
+   * @param {K} event - The name of the event to wait for.
+   * @param {WaitUtilConfig<Arguments<M[K]>>} [config={}] - Configuration options for the waitUtil method.
+   * @returns {Promise<Arguments<M[K]>>} - A promise that resolves with the event arguments.
    */
   public waitUtil = <K extends keyof M = keyof M>(
     event: K,
     config: WaitUtilConfig<Arguments<M[K]>> = {},
-  ) => {
+  ): Promise<Arguments<M[K]>> => {
     const { timeout = 0, cancelRef, where, mapToError } = config
 
     return new Promise<Arguments<M[K]>>((res, rej) => {
@@ -335,14 +360,12 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   }
 
   /**
-   * waitUtilAll wait util all event success fired
-   * if any waitUtil failure , waitUtilAll will failure
-   * you should use as const for params eventList for type support
-   * @async
-   * @template K
-   * @template EventList
-   * @param {EventList} eventList
-   * @returns {Promise<{ExtractHandlerMapArgumentsFromEventListItem<M, K, EventList>}>}
+   * Waits for all events in the specified list to be emitted.
+   *
+   * @template K - The type representing keys of the handler map.
+   * @template EventList - The type representing the list of events to wait for.
+   * @param {EventList} eventList - The list of events to wait for.
+   * @returns {Promise<ExtractHandlerMapArgumentsFromEventListItem<M, K, EventList>>} - A promise that resolves with the arguments of all emitted events.
    */
   public waitUtilAll = async <
     K extends keyof M = keyof M,
@@ -359,12 +382,11 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   }
 
   /**
-   * waitUtilRace wait util any waitUtil promise success or failure
+   * Waits for the first event in the specified list to be emitted.
    *
-   * @async
-   * @template K
-   * @param {EventListItem<M, K>[]} eventList
-   * @returns {Promise<K extends keyof M ? Arguments<M[K]> : never>}
+   * @template K - The type representing keys of the handler map.
+   * @param {((EventListItem<M, K> | K)[])} eventList - The list of events to wait for.
+   * @returns {Promise<WaitUtilCommonReturnValue<M, K>>} - A promise that resolves with the result of the first emitted event.
    */
   public waitUtilRace = async <K extends keyof M = keyof M>(
     eventList: (EventListItem<M, K> | K)[],
@@ -375,12 +397,11 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   }
 
   /**
-   * waitUtilAny wait util any waitUtil promise success or all of them are failure
+   * Waits for any event in the specified list to be emitted.
    *
-   * @async
-   * @template K
-   * @param {EventListItem<M, K>[]} eventList
-   * @returns {Promise<K extends keyof M ? Arguments<M[K]> : never>}
+   * @template K - The type representing keys of the handler map.
+   * @param {((EventListItem<M, K> | K)[])} eventList - The list of events to wait for.
+   * @returns {Promise<WaitUtilCommonReturnValue<M, K>>} - A promise that resolves with the result of the first emitted event from the list.
    */
   public waitUtilAny = async <K extends keyof M = keyof M>(
     eventList: (EventListItem<M, K> | K)[],
@@ -391,17 +412,12 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   }
 
   /**
-   * create stream producer with asyncIterator support
-   * first param is array of event you want to subscribe
-   * second param is strategy when stream is full filled
-   * if strategy.capacity is large than zero
-   * then strategy will work, when event queue's length is equal to capacity
-   * producer will either 'drop' or 'replace' new event,
-   *'replace' means shift the head of queue and push at end of queue which remain length the same
-   *
-   * @param eventList
-   * @param strategy
-   * @returns
+   * Creates a stream producer with support for async iteration.
+   * Strategy will work when strategy.capacity is large than zero
+   * producer will either 'drop' or 'replace' new event when event queue's length is equal to capacity
+   * @param {K[]} eventList - An array of events to subscribe to.
+   * @param {EventStreamStrategy} strategy - The strategy to apply when the stream is full.
+   * @returns {Object} - An object with methods for async iteration and event count information.
    */
   public createEventStream = <K extends keyof M = keyof M>(
     eventList: K[],
@@ -454,13 +470,11 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
   }
 
   /**
-   * createEventReadableStream is almost the same as createEventStreamAsyncIterator
-   * return ReadableStream contains event stream
-   * see details of createEventStreamAsyncIterator
+   * Creates a ReadableStream containing the event stream.
    *
-   * @param eventList
-   * @param strategy
-   * @returns
+   * @param {K[]} eventList - An array of events to subscribe to.
+   * @param {EventStreamStrategy} strategy - The strategy to apply when the stream is full.
+   * @returns {ReadableStream} - A ReadableStream containing the event stream.
    */
   public createEventReadableStream = <K extends keyof M = keyof M>(
     eventList: K[],
@@ -484,52 +498,52 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     return this.#createEventReadableStreamWithoutCapacity(eventList)
   }
 
-  /**
-   * create Observer with access control that observer can only listen to specify events , and other behavior
-   * @param {ObserverAccessControl}
-   * @returns {IAccessControlObserver}
-   */
-  public createObserver = <K extends keyof M>({ events = [] }: ObserverAccessControl<K> = {}) => {
-    const observer: IAccessControlObserver<M, K> = Object.freeze({
-      on: (key: K, callback: M[K]) => {
-        if (!events.includes(key)) throw errors.AccessControlError
-        this.on(key, callback)
-        return this.off.bind(this, key, callback)
-      },
-      once: this.once,
-      off: this.off,
-      waitUtil: this.waitUtil,
-    })
-    return observer
-  }
+  // /**
+  //  * create Observer with access control that observer can only listen to specify events , and other behavior
+  //  * @param {ObserverAccessControl}
+  //  * @returns {IAccessControlObserver}
+  //  */
+  // public createObserver = <K extends keyof M>({ events = [] }: ObserverAccessControl<K> = {}) => {
+  //   const observer: IAccessControlObserver<M, K> = Object.freeze({
+  //     on: (key: K, callback: M[K]) => {
+  //       if (!events.includes(key)) throw errors.AccessControlError
+  //       this.on(key, callback)
+  //       return this.off.bind(this, key, callback)
+  //     },
+  //     once: this.once,
+  //     off: this.off,
+  //     waitUtil: this.waitUtil,
+  //   })
+  //   return observer
+  // }
 
-  /**
-   * create Publisher with access control that can publish specify events , or control and other behavior
-   * @param {PublisherAccessControl}
-   * @returns {IAccessControlPublisher}
-   */
-  public createPublisher = <K extends keyof M>({
-    events = [],
-    canInterceptEmit = true,
-    canUnInterceptEmit = true,
-  }: PublisherAccessControl<K> = {}): IAccessControlPublisher<M, K> => {
-    const publisher: IAccessControlPublisher<M, K> = Object.freeze({
-      emit: (key: K, ...args: Arguments<M[K]>) => {
-        if (!events.includes(key)) throw errors.AccessControlError
-        this.emit(key, ...args)
-        return this
-      },
-      interceptEmit: () => {
-        if (!canInterceptEmit) throw errors.AccessControlError
-        this.interceptEmit()
-      },
-      unInterceptEmit: () => {
-        if (!canUnInterceptEmit) throw errors.AccessControlError
-        this.unInterceptEmit()
-      },
-    })
-    return publisher
-  }
+  // /**
+  //  * create Publisher with access control that can publish specify events , or control and other behavior
+  //  * @param {PublisherAccessControl}
+  //  * @returns {IAccessControlPublisher}
+  //  */
+  // public createPublisher = <K extends keyof M>({
+  //   events = [],
+  //   canInterceptEmit = true,
+  //   canUnInterceptEmit = true,
+  // }: PublisherAccessControl<K> = {}): IAccessControlPublisher<M, K> => {
+  //   const publisher: IAccessControlPublisher<M, K> = Object.freeze({
+  //     emit: (key: K, ...args: Arguments<M[K]>) => {
+  //       if (!events.includes(key)) throw errors.AccessControlError
+  //       this.emit(key, ...args)
+  //       return this
+  //     },
+  //     interceptEmit: () => {
+  //       if (!canInterceptEmit) throw errors.AccessControlError
+  //       this.interceptEmit()
+  //     },
+  //     unInterceptEmit: () => {
+  //       if (!canUnInterceptEmit) throw errors.AccessControlError
+  //       this.unInterceptEmit()
+  //     },
+  //   })
+  //   return publisher
+  // }
 
   #validNumber = (value: any): value is number => {
     return typeof value === 'number' && !Number.isNaN(value)
