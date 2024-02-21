@@ -21,7 +21,6 @@ import { CollectionMap } from './map'
 import { createListenerLinker } from './linkable-listener'
 import { RingBuffer } from './ring-buffer'
 import { CollectionSet } from './set'
-// import { getCurrentTimeMs } from './time'
 
 /**
  * SyncEvent support register , emit, cancel and promise/stream
