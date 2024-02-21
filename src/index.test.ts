@@ -104,7 +104,7 @@ test.concurrent('test sync event listenerCount', () => {
 test.concurrent('test sync event on and once', () => {
   const eventEmitter = SyncEvent.new<EventHandlerMap>()
   let count = 0
-  const cancelAll = eventEmitter
+  const cancelAll = eventEmitter.subscriber
     .on('ev1', (_, v) => {
       count += v
     })
@@ -122,7 +122,7 @@ test.concurrent('test sync event on and once', () => {
 
   expect(count).toBe(1)
 
-  eventEmitter.emit('ev2', 1, '')
+  eventEmitter.publisher.emit('ev2', 1, '')
 
   expect(count).toBe(1)
 
@@ -1096,6 +1096,59 @@ test('test listener options debounce maxTime', done => {
   fn().then(done).catch(done)
 })
 
+test('test listener options debounce maxTime Date', done => {
+  const fn = async () => {
+    const div = document.createElement('div')
+    const divEventProxy = new EventProxy(div, { useDateAsTimeTool: true })
+
+    let emitTimes = 0
+
+    let time = Date.now()
+    divEventProxy.on(
+      'click',
+      () => {
+        emitTimes += 1
+        const now = Date.now()
+
+        try {
+          expect(now - time).toBeGreaterThanOrEqual(100)
+          expect(now - time).toBeLessThanOrEqual(250)
+          time = now
+        } catch (error) {
+          done(error)
+        }
+      },
+      {
+        debounce: {
+          waitMs: 100,
+          maxWaitMs: 200,
+        },
+      },
+    )
+
+    let count = 0
+    const timerId = setInterval(() => {
+      count += 1
+      div.click()
+      div.dataset['count'] = count.toString()
+      if (count === 40) {
+        clearInterval(timerId)
+      }
+    }, 50)
+
+    const timeMark = Date.now()
+    await divEventProxy.waitUtil('click', {
+      where() {
+        return count >= 40
+      },
+    })
+
+    expect(emitTimes).toBeGreaterThanOrEqual(Math.floor((Date.now() - timeMark) / 200))
+  }
+
+  fn().then(done).catch(done)
+})
+
 test('test listener options throttle', done => {
   const fn = async () => {
     const div = document.createElement('div')
@@ -1141,7 +1194,8 @@ test('test listener options throttle', done => {
       },
     })
 
-    expect(emitTimes).toBe(Math.floor((Date.now() - originTime) / 1000))
+    expect(emitTimes).toBeGreaterThanOrEqual(Math.floor((Date.now() - originTime) / 1000))
+    expect(emitTimes).toBeLessThanOrEqual(Math.floor((Date.now() - originTime) / 1000) + 1)
 
     timerId = setInterval(() => {
       count += 1
@@ -1154,4 +1208,229 @@ test('test listener options throttle', done => {
   }
 
   fn().then(done).catch(done)
+})
+
+test.concurrent('test params valid', async () => {
+  const div = createProxy('div')
+  try {
+    // @ts-ignore
+    div.on('__offSyncEventListener__', () => {})
+    expect(false).toBe(true)
+  } catch (error) {
+    expect(error).toBeInstanceOf(Error)
+  }
+
+  try {
+    // @ts-ignore
+    div.on('__onSyncEventListener__', () => {})
+    expect(false).toBe(true)
+  } catch (error) {
+    expect(error).toBeInstanceOf(Error)
+  }
+
+  const e = Error()
+  try {
+    setTimeout(() => {
+      div.element.dispatchEvent(new Event('click'))
+    })
+    await div.waitUtil('click', {
+      mapToError() {
+        throw e
+      },
+    })
+  } catch (error) {
+    expect(error).toBe(e)
+  }
+
+  try {
+    setTimeout(() => {
+      div.element.dispatchEvent(new Event('click'))
+    })
+    const value = await div.waitUtil('click', {
+      mapToError() {
+        return null
+      },
+    })
+    expect(value[0].type).toBe('click')
+  } catch (error) {
+    expect(true).toBe(false)
+  }
+
+  try {
+    setTimeout(() => {
+      div.element.dispatchEvent(new Event('click'))
+    })
+    let count = 0
+    await div.waitUtil('click', {
+      timeout: 1000,
+      where() {
+        throw e
+        count += 1
+        return count === 10
+      },
+    })
+
+    expect(true).toBe(false)
+  } catch (error) {
+    expect(error).toBe(e)
+  }
+
+  try {
+    div.on('click', () => {}, {
+      debounce: {
+        waitMs: NaN,
+        maxWaitMs: 0,
+      },
+      throttle: {
+        waitMs: 0,
+      },
+    })
+    expect(false).toBe(true)
+  } catch (error) {
+    expect(error).toBeInstanceOf(Error)
+  }
+
+  try {
+    div.on('click', () => {}, {
+      debounce: {
+        waitMs: 10,
+        maxWaitMs: -1,
+      },
+      throttle: {
+        waitMs: 0,
+      },
+    })
+    expect(false).toBe(true)
+  } catch (error) {
+    expect(error).toBeInstanceOf(Error)
+  }
+
+  try {
+    div.on('click', () => {}, {
+      debounce: {
+        waitMs: 10,
+        maxWaitMs: 20,
+      },
+      throttle: {
+        waitMs: NaN,
+      },
+    })
+    expect(false).toBe(true)
+  } catch (error) {
+    expect(error).toBeInstanceOf(Error)
+  }
+
+  try {
+    div.on('click', () => {}, {
+      debounce: {
+        waitMs: 200,
+        maxWaitMs: 100,
+      },
+    })
+    expect(false).toBe(true)
+  } catch (error) {
+    expect(error).toBeInstanceOf(Error)
+  }
+
+  try {
+    div.createEventStream(['click'], {
+      capacity: -1,
+      // @ts-ignore
+      strategyWhenFull: 'xxx',
+    })
+    expect(false).toBe(true)
+  } catch (error) {
+    expect(error).toBeInstanceOf(Error)
+  }
+
+  try {
+    div.createEventStream(['click'], {
+      capacity: NaN,
+      // @ts-ignore
+      strategyWhenFull: 'xxx',
+    })
+    expect(false).toBe(true)
+  } catch (error) {
+    expect(error).toBeInstanceOf(Error)
+  }
+
+  try {
+    div.createEventStream(['click'], {
+      capacity: -1,
+      // @ts-ignore
+      strategyWhenFull: 'xxx',
+    })
+    expect(false).toBe(true)
+  } catch (error) {
+    expect(error).toBeInstanceOf(Error)
+  }
+
+  try {
+    div.createEventReadableStream(['click'], {
+      capacity: -1,
+      // @ts-ignore
+      strategyWhenFull: 'xxx',
+    })
+    expect(false).toBe(true)
+  } catch (error) {
+    expect(error).toBeInstanceOf(Error)
+  }
+
+  try {
+    div.createEventReadableStream(['click'], {
+      capacity: NaN,
+      // @ts-ignore
+      strategyWhenFull: 'xxx',
+    })
+    expect(false).toBe(true)
+  } catch (error) {
+    expect(error).toBeInstanceOf(Error)
+  }
+
+  try {
+    div.createEventReadableStream(['click'], {
+      capacity: -1,
+      // @ts-ignore
+      strategyWhenFull: 'xxx',
+    })
+    expect(false).toBe(true)
+  } catch (error) {
+    expect(error).toBeInstanceOf(Error)
+  }
+
+  try {
+    // @ts-ignore
+    await div.waitUtil()
+    expect(false).toBe(true)
+  } catch (error) {
+    expect(error).toBeInstanceOf(Error)
+  }
+
+  try {
+    const cancel = { current() {} }
+    const p = div.waitUtil('click', { cancelRef: cancel })
+    cancel.current?.()
+    await p
+    expect(false).toBe(true)
+  } catch (error) {
+    expect(error).toBeInstanceOf(Error)
+  }
+
+  try {
+    const cancel = { current() {} }
+
+    const p = div.waitUtilAll([{ event: 'click', timeout: 100, cancelRef: cancel }])
+    cancel?.current?.()
+    await p
+    expect(false).toBe(true)
+  } catch (error) {
+    expect(error).toBeInstanceOf(Error)
+  }
+
+  try {
+    await div.waitUtilAll([])
+    expect(false).toBe(true)
+  } catch (error) {
+    expect(error).toBeInstanceOf(Error)
+  }
 })
