@@ -1,4 +1,6 @@
-<h1><p align='center'>OCEV</p></h1>
+<p align='center'><img style="width:220px;" src="./logo.svg"/></p>
+
+<h1></h1>
 
 ![Jest coverage](./badges/coverage-jest%20coverage.svg)
 ![github workflow](https://github.com/swnb/ocev/actions/workflows/test.yml/badge.svg)
