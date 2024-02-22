@@ -34,8 +34,7 @@
     "tslint-config-prettier",
     "example/**",
     "src/*_test.ts",
-    "src/proxy/chrome.ts",
-    "test"
+    "src/proxy/chrome.ts"
   ],
   "include": ["src"]
 }

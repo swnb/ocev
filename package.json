@@ -1,14 +1,14 @@
 {
   "name": "ocev",
   "version": "0.18.0",
-  "description": "event module support promise/stream and can proxy all web element",
+  "description": "event library support promise/stream and can proxy all web element",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsc --build --clean  && tsc --build tsconfig.json && npx tsc-alias",
+    "build": "tsc --build  config/tsconfig.production.json --clean && tsc --build config/tsconfig.production.json --verbose && npx tsc-alias",
     "prepublishOnly": "npm run build",
     "test": "rm -rf ./dist/ && jest",
     "test:coverage": "jest --coverage",
@@ -19,10 +19,15 @@
     "url": "git+https://github.com/swnb/ocev.git"
   },
   "keywords": [
-    "event"
+    "event",
+    "promise",
+    "stream",
+    "proxy",
+    "web",
+    "element"
   ],
   "author": "swnb",
-  "license": "ISC",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/swnb/ocev/issues"
   },
