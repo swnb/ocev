@@ -69,14 +69,12 @@ If you are using ocev, your code will be something like this, infinite calls, on
 ```tsx
 import { EventProxy } from "ocev"
 
-useEffect(
-  () =>
-    EventProxy.new(target)
-      .on("event1", (...args) => {}) // 支持完整的类型提示
-      .once("event2", (...args) => {})
-      .on("event3", (...args) => {}),
-  [target]
-)
+useEffect(() => {
+  return EventProxy.new(target)
+    .on("event1", (...args) => {}) // 支持完整的类型提示
+    .once("event2", (...args) => {})
+    .on("event3", (...args) => {})
+}, [target])
 ```
 
 > all examples in current section base on EventProxy, EventProxy is wrapper of SyncEvent, more detail see docs
