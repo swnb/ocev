@@ -303,4 +303,4 @@ Almost all **web elements** can be proxied by `EventProxy`. [codesandbox example
 
 ## More
 
-If you want to know more about **EventProxy** and **SyncEvent**, see docs
+If you want to know more about **EventProxy** and **SyncEvent**, see [docs](https://ocev.async-rustacean.top/docs/sync-event)
