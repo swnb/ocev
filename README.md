@@ -230,7 +230,7 @@ async function setupWebSocket(url: string, timeout: number) {
 }
 ```
 
-With asyncIterator, you can convert events into stream, and you can use the **strategy** to drop messages when faced with **backpressure**
+With asyncIterator, you can convert events into stream, and you can use the [**strategy**](https://ocev.async-rustacean.top/docs/sync-event#back-pressure) to drop messages when faced with **backpressure**
 
 With Promise/Stream, when you convert all the code to async/await, you can handle the reconnection logic like this
 
