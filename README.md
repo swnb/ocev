@@ -118,7 +118,7 @@ import { EventProxy } from "ocev"
 
 useEffect(() => {
   return EventProxy.new(target)
-    .on("event1", (...args) => {}) // 支持完整的类型提示
+    .on("event1", (...args) => {}) // type hint!
     .once("event2", (...args) => {})
     .on("event3", (...args) => {})
 }, [target])
@@ -289,7 +289,7 @@ function Video() {
     })
   }, [])
 
-  const url = "" // 你的  video  链接
+  const url = "" // your  video  link
 
   return <video muted autoPlay src={url} ref={videoDomRef} />
 }
