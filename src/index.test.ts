@@ -135,6 +135,16 @@ test.concurrent('test sync event on and once', () => {
   eventEmitter.emit('ev1', '', 1)
 
   expect(count).toBe(2)
+
+  eventEmitter.subscriber.on('ev1', (_, v) => {
+    count += v
+  })
+
+  eventEmitter.subscriber.offAll()
+
+  eventEmitter.emit('ev1', '', 1)
+
+  expect(count).toBe(2)
 })
 
 test.concurrent('test event proxy', () => {

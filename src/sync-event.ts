@@ -40,6 +40,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
     | 'on'
     | 'once'
     | 'off'
+    | 'offAll'
     | 'any'
     | 'waitUtil'
     | 'waitUtilRace'
@@ -63,6 +64,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
       any: this.any,
       once: this.once,
       off: this.off,
+      offAll: this.offAll,
       waitUtil: this.waitUtil,
       waitUtilRace: this.waitUtilRace,
       waitUtilAll: this.waitUtilAll,
@@ -88,6 +90,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
    *| 'on'
     | 'once'
     | 'off'
+    | 'offAll'
     | 'any'
     | 'waitUtil'
     | 'waitUtilRace'
