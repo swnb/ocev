@@ -1,6 +1,6 @@
 {
   "name": "ocev",
-  "version": "0.18.2",
+  "version": "0.19.0",
   "description": "event library support promise/stream and can proxy all web element",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
