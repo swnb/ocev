@@ -1444,3 +1444,89 @@ test.concurrent('test params valid', async () => {
     expect(error).toBeInstanceOf(Error)
   }
 })
+
+test.concurrent('test event recorder', () => {
+  const eventEmitter = SyncEvent.new<{
+    setValue: (value: number) => void
+    increase: VoidFunction
+    decrease: VoidFunction
+  }>()
+
+  const eventRecorder = eventEmitter.createEventRecorder({ replaySelf: true })
+
+  eventRecorder.record()
+
+  let value = 0
+  eventEmitter
+    .on('setValue', newValue => {
+      value = newValue
+    })
+    .on('increase', () => {
+      value += 1
+    })
+    .on('decrease', () => {
+      value -= 1
+    })
+
+  eventEmitter.emit('setValue', 1)
+  expect(value).toBe(1)
+  eventEmitter.emit('increase')
+  expect(value).toBe(2)
+  eventEmitter.emit('decrease')
+  expect(value).toBe(1)
+
+  value = 0
+  eventRecorder.replay()
+  expect(value).toBe(1)
+
+  eventRecorder.stop()
+
+  eventEmitter.emit('increase')
+  expect(value).toBe(2)
+  eventRecorder.replay()
+  expect(value).toBe(1)
+  eventEmitter.emit('increase')
+  expect(value).toBe(2)
+  eventRecorder.replay()
+  expect(value).toBe(1)
+
+  eventRecorder.record()
+  expect(value).toBe(1)
+  eventEmitter.emit('increase')
+  expect(value).toBe(2)
+  eventRecorder.replay()
+  expect(value).toBe(2)
+  eventEmitter.emit('increase')
+  expect(value).toBe(3)
+  eventRecorder.replay()
+  expect(value).toBe(3)
+
+  eventRecorder.clear()
+  eventEmitter.emit('increase')
+  expect(value).toBe(4)
+  eventRecorder.replay()
+  expect(value).toBe(5)
+
+  const recorder2 = eventEmitter.createEventRecorder()
+
+  eventEmitter.emit('setValue', 0)
+
+  recorder2.record()
+  expect(value).toBe(0)
+  eventEmitter.emit('increase')
+  expect(value).toBe(1)
+  recorder2.replay()
+  expect(value).toBe(1)
+
+  recorder2.subscriber
+    .on('increase', () => {
+      value += 1
+    })
+    .on('decrease', () => {
+      value -= 1
+    })
+
+  recorder2.replay()
+
+  expect(value).toBe(2)
+})

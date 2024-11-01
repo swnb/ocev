@@ -21,6 +21,7 @@ import { CollectionMap } from './map'
 import { createListenerLinker } from './linkable-listener'
 import { RingBuffer } from './ring-buffer'
 import { CollectionSet } from './set'
+import { EventRecorder } from './recorder'
 
 /**
  * SyncEvent support register , emit, cancel and promise/stream
@@ -518,6 +519,18 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
       return this.#createEventReadableStreamWithCapacity(eventList, strategy)
     }
     return this.#createEventReadableStreamWithoutCapacity(eventList)
+  }
+
+  /**
+   * Creates an EventRecorder instance for recording events.
+   *
+   * @param {boolean} replaySelf - Whether to replay events on this instance.
+   * @returns {EventRecorder} - The created EventRecorder instance.
+   */
+  public createEventRecorder({
+    replaySelf = false,
+  }: { replaySelf?: boolean } = {}): EventRecorder<M> {
+    return new EventRecorder(this, replaySelf ? this : SyncEvent.new())
   }
 
   // /**
