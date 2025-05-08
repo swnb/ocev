@@ -290,7 +290,7 @@ export type ListenerConfig = {
   lastEmitMs: number
   debounce?: {
     waitMs: number
-    timerId: number | NodeJS.Timeout
+    timerId: number
     expectExecTimeMs: number
     delayMs: number
     maxWaitMs: number
