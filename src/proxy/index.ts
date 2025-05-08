@@ -161,7 +161,7 @@ export class EventProxy<T extends CanAddEventListener>
       this.#syncEvent.offAll(event)
     } else {
       this.#alreadyRegisterEventList.forEach(({ callback }, key) => {
-        this.#element.removeEventListener(key, callback)
+        this.#element.removeEventListener(key as string, callback)
       })
       this.#alreadyRegisterEventList.clear()
       this.#syncEvent.offAll()
@@ -174,7 +174,7 @@ export class EventProxy<T extends CanAddEventListener>
    */
   destroy = () => {
     this.#alreadyRegisterEventList.forEach(({ callback }, key) => {
-      this.#element.removeEventListener(key, callback)
+      this.#element.removeEventListener(key as string, callback)
     })
     this.#alreadyRegisterEventList.clear()
     this.#syncEvent.offAll()
