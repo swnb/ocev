@@ -90,7 +90,9 @@ export interface ISyncEvent<M extends HandlerMap> {
     config?: WaitUtilConfig<Arguments<M[K]>>,
   ) => Promise<Arguments<M[K]>>
   /**
-   * Waits for all events in the specified list to be emitted.
+   * Waits for any event in the specified list to be emitted.
+   * If all events fail, the promise is rejected.
+   * If any event succeeds, the promise is resolved.
    *
    * @template K - The type representing keys of the handler map.
    * @template EventList - The type representing the list of events to wait for.

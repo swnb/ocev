@@ -421,6 +421,8 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
 
   /**
    * Waits for any event in the specified list to be emitted.
+   * If all events fail, the promise is rejected.
+   * If any event succeeds, the promise is resolved.
    *
    * @template K - The type representing keys of the handler map.
    * @param {((EventListItem<M, K> | K)[])} eventList - The list of events to wait for.
