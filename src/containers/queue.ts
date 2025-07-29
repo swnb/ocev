@@ -89,41 +89,49 @@ class Queue<T> {
    * @param {T[]} items - 要推入队列的元素
    * @returns {Promise<{ success: boolean }>} 是否成功推入队列, 如果 close 则返回 false
    */
-  push = async (...items: T[]): Promise<{ success: boolean }> => {
+  push = async (...items: T[]): Promise<{ success: boolean; pushedSize: number }> => {
+    let pushedSize = 0
+
     if (this.#closed) {
-      return { success: false }
+      return { success: false, pushedSize }
     }
 
     for (let i = 0; i < items.length; i++) {
       while (this.isFull) {
+        if (this.#closed) {
+          return { success: false, pushedSize }
+        }
+
         const result = await this.#ev.waitUtilRace(['consumed', 'closed', 'reset'])
         if (result.event === 'closed' || result.event === 'reset') {
-          return { success: false }
+          return { success: false, pushedSize }
         }
       }
 
-      if (this.#closed) {
-        return { success: false }
-      }
-
       this.#queue.push(items[i])
+      pushedSize += 1
       this.#ev.emit('pushed')
     }
 
-    return { success: true }
+    return { success: true, pushedSize }
   }
 
   /**
    * @description 尝试将元素推入队列
-   * @param {T[]} args - 要推入队列的元素
+   * @param {T[]} items - 要推入队列的元素
    * @returns {boolean} 是否成功推入队列
    */
-  tryPush = async (...args: T[]): Promise<boolean> => {
-    if (this.#closed || this.isFull) {
+  tryPush = async (...items: T[]): Promise<boolean> => {
+    if (this.#closed) {
       return false
     }
 
-    this.#queue.push(...args)
+    // 检查推入所有元素后是否会超过容量
+    if (this.remainingCapacity() < items.length) {
+      return false
+    }
+
+    this.#queue.push(...items)
     this.#ev.emit('pushed')
     return true
   }

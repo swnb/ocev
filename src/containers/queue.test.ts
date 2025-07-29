@@ -36,7 +36,9 @@ describe('Queue', () => {
 
       expect(queue.isEmpty).toBe(true)
 
-      await queue.push(1)
+      const pushResult = await queue.push(1)
+      expect(pushResult.success).toBe(true)
+      expect(pushResult.pushedSize).toBe(1)
       expect(queue.isEmpty).toBe(false)
 
       const result = queue.tryRead()
@@ -49,10 +51,14 @@ describe('Queue', () => {
 
       expect(queue.isFull).toBe(false)
 
-      await queue.push(1)
+      const result1 = await queue.push(1)
+      expect(result1.success).toBe(true)
+      expect(result1.pushedSize).toBe(1)
       expect(queue.isFull).toBe(false)
 
-      await queue.push(2)
+      const result2 = await queue.push(2)
+      expect(result2.success).toBe(true)
+      expect(result2.pushedSize).toBe(1)
       expect(queue.isFull).toBe(true)
     })
 
@@ -60,7 +66,9 @@ describe('Queue', () => {
       const queue = Queue.new<number>(0)
 
       for (let i = 0; i < 1000; i++) {
-        await queue.push(i)
+        const result = await queue.push(i)
+        expect(result.success).toBe(true)
+        expect(result.pushedSize).toBe(1)
         expect(queue.isFull).toBe(false)
       }
     })
@@ -80,10 +88,14 @@ describe('Queue', () => {
 
       expect(queue.remainingCapacity()).toBe(3)
 
-      await queue.push(1)
+      const result1 = await queue.push(1)
+      expect(result1.success).toBe(true)
+      expect(result1.pushedSize).toBe(1)
       expect(queue.remainingCapacity()).toBe(2)
 
-      await queue.push(2, 3)
+      const result2 = await queue.push(2, 3)
+      expect(result2.success).toBe(true)
+      expect(result2.pushedSize).toBe(2)
       expect(queue.remainingCapacity()).toBe(0)
 
       queue.tryRead()
@@ -95,10 +107,14 @@ describe('Queue', () => {
 
       expect(queue.length()).toBe(0)
 
-      await queue.push('a')
+      const result1 = await queue.push('a')
+      expect(result1.success).toBe(true)
+      expect(result1.pushedSize).toBe(1)
       expect(queue.length()).toBe(1)
 
-      await queue.push('b', 'c')
+      const result2 = await queue.push('b', 'c')
+      expect(result2.success).toBe(true)
+      expect(result2.pushedSize).toBe(2)
       expect(queue.length()).toBe(3)
 
       queue.tryRead()
@@ -136,10 +152,71 @@ describe('Queue', () => {
       expect(queue.length()).toBe(3)
     })
 
+    test.concurrent('tryPush 应该正确检查推入多个元素后的容量限制', async () => {
+      const queue = Queue.new<number>(3)
+
+      // 先推入2个元素
+      await queue.tryPush(1, 2)
+      expect(queue.length()).toBe(2)
+
+      // 尝试推入2个元素，应该失败（因为2+2=4 > 3）
+      const success = await queue.tryPush(3, 4)
+      expect(success).toBe(false)
+      expect(queue.length()).toBe(2) // 队列应该保持原状
+
+      // 推入1个元素应该成功
+      const success2 = await queue.tryPush(3)
+      expect(success2).toBe(true)
+      expect(queue.length()).toBe(3)
+    })
+
+    test.concurrent('push 应该逐个推入多个元素', async () => {
+      const queue = Queue.new<number>(3)
+
+      // 先填入2个元素
+      const result1 = await queue.push(1, 2)
+      expect(result1.success).toBe(true)
+      expect(result1.pushedSize).toBe(2)
+      expect(queue.length()).toBe(2)
+
+      // 在另一个任务中尝试推入2个元素（需要等待空间）
+      const pushPromise = queue.push(3, 4)
+
+      // 稍等一下确保push开始等待
+      await new Promise<void>(resolve => {
+        setTimeout(() => resolve(), 10)
+      })
+
+      // 消费1个元素，这会让第一个待推入的元素进入队列
+      const readResult = await queue.read()
+      expect(readResult.value).toBe(1)
+
+      // 稍等让第一个元素推入
+      await new Promise<void>(resolve => {
+        setTimeout(() => resolve(), 10)
+      })
+
+      // 现在队列应该有3个元素：2, 3，第二个元素4还在等待
+      expect(queue.length()).toBe(3)
+
+      // 再消费一个元素，让第二个元素也能推入
+      const readResult2 = await queue.read()
+      expect(readResult2.value).toBe(2)
+
+      // push应该完成
+      const pushResult = await pushPromise
+      expect(pushResult.success).toBe(true)
+      expect(pushResult.pushedSize).toBe(2)
+      expect(queue.length()).toBe(2) // 应该有2个元素：3, 4
+    })
+
     test.concurrent('tryRead 应该在队列非空时返回元素', async () => {
       const queue = Queue.new<string>(3)
 
-      await queue.push('hello')
+      const pushResult = await queue.push('hello')
+      expect(pushResult.success).toBe(true)
+      expect(pushResult.pushedSize).toBe(1)
+
       const result = queue.tryRead()
       expect(result.success).toBe(true)
       expect(result.value).toBe('hello')
@@ -156,6 +233,24 @@ describe('Queue', () => {
   })
 
   describe('异步操作 push 和 read', () => {
+    test.concurrent('push 应该成功推入元素并返回正确的推入数量', async () => {
+      const queue = Queue.new<number>(3)
+
+      const result = await queue.push(1, 2)
+      expect(result.success).toBe(true)
+      expect(result.pushedSize).toBe(2)
+      expect(queue.length()).toBe(2)
+    })
+
+    test.concurrent('push 单个元素应该返回 pushedSize 为 1', async () => {
+      const queue = Queue.new<number>(3)
+
+      const result = await queue.push(42)
+      expect(result.success).toBe(true)
+      expect(result.pushedSize).toBe(1)
+      expect(queue.length()).toBe(1)
+    })
+
     test.concurrent('push 应该成功推入元素', async () => {
       const queue = Queue.new<number>(3)
 
@@ -167,7 +262,10 @@ describe('Queue', () => {
     test.concurrent('read 应该成功读取元素', async () => {
       const queue = Queue.new<string>(3)
 
-      await queue.push('test')
+      const pushResult = await queue.push('test')
+      expect(pushResult.success).toBe(true)
+      expect(pushResult.pushedSize).toBe(1)
+
       const result = await queue.read()
       expect(result.success).toBe(true)
       expect(result.value).toBe('test')
@@ -177,7 +275,9 @@ describe('Queue', () => {
       const queue = Queue.new<number>(2)
 
       // 填满队列
-      await queue.push(1, 2)
+      const result1 = await queue.push(1, 2)
+      expect(result1.success).toBe(true)
+      expect(result1.pushedSize).toBe(2)
       expect(queue.isFull).toBe(true)
 
       // 开始异步推入，应该会等待
@@ -195,6 +295,7 @@ describe('Queue', () => {
       // push 应该完成
       const pushResult = await pushPromise
       expect(pushResult.success).toBe(true)
+      expect(pushResult.pushedSize).toBe(1)
       expect(queue.length()).toBe(2)
     })
 
@@ -210,7 +311,9 @@ describe('Queue', () => {
       })
 
       // 推入一个元素
-      await queue.push('hello')
+      const pushResult = await queue.push('hello')
+      expect(pushResult.success).toBe(true)
+      expect(pushResult.pushedSize).toBe(1)
 
       // read 应该完成
       const readResult = await readPromise
@@ -222,7 +325,9 @@ describe('Queue', () => {
       const queue = Queue.new<number>(1)
 
       // 填满队列
-      await queue.push(1)
+      const result1 = await queue.push(1)
+      expect(result1.success).toBe(true)
+      expect(result1.pushedSize).toBe(1)
 
       // 启动多个push操作
       const push1 = queue.push(2)
@@ -234,10 +339,14 @@ describe('Queue', () => {
 
       // 逐个消费
       expect((await queue.read()).value).toBe(1)
-      expect((await push1).success).toBe(true)
+      const push1Result = await push1
+      expect(push1Result.success).toBe(true)
+      expect(push1Result.pushedSize).toBe(1)
 
       expect((await queue.read()).value).toBe(2)
-      expect((await push2).success).toBe(true)
+      const push2Result = await push2
+      expect(push2Result.success).toBe(true)
+      expect(push2Result.pushedSize).toBe(1)
 
       expect((await queue.read()).value).toBe(3)
     })
@@ -254,10 +363,14 @@ describe('Queue', () => {
       })
 
       // 逐个生产
-      await queue.push('first')
+      const pushResult1 = await queue.push('first')
+      expect(pushResult1.success).toBe(true)
+      expect(pushResult1.pushedSize).toBe(1)
       expect((await read1).value).toBe('first')
 
-      await queue.push('second')
+      const pushResult2 = await queue.push('second')
+      expect(pushResult2.success).toBe(true)
+      expect(pushResult2.pushedSize).toBe(1)
       expect((await read2).value).toBe('second')
     })
   })
@@ -266,20 +379,23 @@ describe('Queue', () => {
     test.concurrent('close 应该关闭队列并清空内容', async () => {
       const queue = Queue.new<number>(3)
 
-      await queue.push(1, 2, 3)
+      const pushResult = await queue.push(1, 2, 3)
+      expect(pushResult.success).toBe(true)
+      expect(pushResult.pushedSize).toBe(3)
       expect(queue.length()).toBe(3)
 
       await queue.close()
       expect(queue.length()).toBe(0)
     })
 
-    test.concurrent('关闭后 push 应该返回失败', async () => {
+    test.concurrent('关闭后 push 应该返回失败且 pushedSize 为 0', async () => {
       const queue = Queue.new<number>(3)
 
       await queue.close()
 
       const result = await queue.push(1)
       expect(result.success).toBe(false)
+      expect(result.pushedSize).toBe(0)
     })
 
     test.concurrent('关闭后 read 应该返回失败', async () => {
@@ -296,7 +412,9 @@ describe('Queue', () => {
       const queue = Queue.new<number>(1)
 
       // 填满队列
-      await queue.push(1)
+      const result1 = await queue.push(1)
+      expect(result1.success).toBe(true)
+      expect(result1.pushedSize).toBe(1)
 
       // 启动等待的push
       const pushPromise = queue.push(2)
@@ -311,6 +429,7 @@ describe('Queue', () => {
       // push应该返回失败
       const result = await pushPromise
       expect(result.success).toBe(false)
+      expect(result.pushedSize).toBe(0)
     })
 
     test.concurrent('关闭应该唤醒等待的 read 操作', async () => {
@@ -336,7 +455,9 @@ describe('Queue', () => {
     test.concurrent('reset 应该重置队列到初始状态', async () => {
       const queue = Queue.new<number>(3)
 
-      await queue.push(1, 2, 3)
+      const pushResult = await queue.push(1, 2, 3)
+      expect(pushResult.success).toBe(true)
+      expect(pushResult.pushedSize).toBe(3)
       expect(queue.length()).toBe(3)
 
       await queue.reset()
@@ -348,17 +469,21 @@ describe('Queue', () => {
     test.concurrent('reset 关闭的队列应该重新可用', async () => {
       const queue = Queue.new<number>(3)
 
-      await queue.push(1)
+      const result1 = await queue.push(1)
+      expect(result1.success).toBe(true)
+      expect(result1.pushedSize).toBe(1)
       await queue.close()
 
       // 关闭后操作失败
-      const result1 = await queue.push(2)
-      expect(result1.success).toBe(false)
+      const result2 = await queue.push(2)
+      expect(result2.success).toBe(false)
+      expect(result2.pushedSize).toBe(0)
 
       // reset 后应该可以重新使用
       await queue.reset()
-      const result2 = await queue.push(2)
-      expect(result2.success).toBe(true)
+      const result3 = await queue.push(2)
+      expect(result3.success).toBe(true)
+      expect(result3.pushedSize).toBe(1)
       expect(queue.length()).toBe(1)
 
       const readResult = await queue.read()
@@ -370,7 +495,9 @@ describe('Queue', () => {
       const queue = Queue.new<number>(1)
 
       // 填满队列
-      await queue.push(1)
+      const result1 = await queue.push(1)
+      expect(result1.success).toBe(true)
+      expect(result1.pushedSize).toBe(1)
 
       // 启动等待的push
       const pushPromise = queue.push(2)
@@ -385,6 +512,7 @@ describe('Queue', () => {
       // push应该返回失败
       const result = await pushPromise
       expect(result.success).toBe(false)
+      expect(result.pushedSize).toBe(0)
     })
 
     test.concurrent('reset 应该中断等待的 read 操作', async () => {
@@ -410,14 +538,18 @@ describe('Queue', () => {
       const queue = Queue.new<string>(2)
 
       // 先进行一些操作
-      await queue.push('old1', 'old2')
+      const result1 = await queue.push('old1', 'old2')
+      expect(result1.success).toBe(true)
+      expect(result1.pushedSize).toBe(2)
       expect((await queue.read()).value).toBe('old1')
 
       // 重置
       await queue.reset()
 
       // 新的操作应该正常工作
-      await queue.push('new1', 'new2')
+      const result2 = await queue.push('new1', 'new2')
+      expect(result2.success).toBe(true)
+      expect(result2.pushedSize).toBe(2)
       expect(queue.length()).toBe(2)
 
       expect((await queue.read()).value).toBe('new1')
@@ -429,7 +561,9 @@ describe('Queue', () => {
       const queue = Queue.new<number>(3)
 
       for (let i = 0; i < 3; i++) {
-        await queue.push(i * 10 + 1, i * 10 + 2)
+        const result = await queue.push(i * 10 + 1, i * 10 + 2)
+        expect(result.success).toBe(true)
+        expect(result.pushedSize).toBe(2)
         expect(queue.length()).toBe(2)
 
         await queue.reset()
@@ -438,7 +572,9 @@ describe('Queue', () => {
       }
 
       // 最后验证还能正常使用
-      await queue.push(100)
+      const result = await queue.push(100)
+      expect(result.success).toBe(true)
+      expect(result.pushedSize).toBe(1)
       expect((await queue.read()).value).toBe(100)
     })
   })
@@ -447,7 +583,9 @@ describe('Queue', () => {
     test.concurrent('应该按FIFO顺序处理元素', async () => {
       const queue = Queue.new<string>(5)
 
-      await queue.push('first', 'second', 'third')
+      const result = await queue.push('first', 'second', 'third')
+      expect(result.success).toBe(true)
+      expect(result.pushedSize).toBe(3)
 
       expect((await queue.read()).value).toBe('first')
       expect((await queue.read()).value).toBe('second')
@@ -457,10 +595,14 @@ describe('Queue', () => {
     test.concurrent('混合操作应该保持FIFO顺序', async () => {
       const queue = Queue.new<number>(3)
 
-      await queue.push(1, 2)
+      const result1 = await queue.push(1, 2)
+      expect(result1.success).toBe(true)
+      expect(result1.pushedSize).toBe(2)
       expect((await queue.read()).value).toBe(1)
 
-      await queue.push(3)
+      const result2 = await queue.push(3)
+      expect(result2.success).toBe(true)
+      expect(result2.pushedSize).toBe(1)
       expect((await queue.read()).value).toBe(2)
       expect((await queue.read()).value).toBe(3)
     })
@@ -470,22 +612,31 @@ describe('Queue', () => {
     test.concurrent('容量为1的队列应该正常工作', async () => {
       const queue = Queue.new<boolean>(1)
 
-      await queue.push(true)
+      const result = await queue.push(true)
+      expect(result.success).toBe(true)
+      expect(result.pushedSize).toBe(1)
       expect(queue.isFull).toBe(true)
       expect(queue.isEmpty).toBe(false)
 
-      const result = await queue.read()
-      expect(result.value).toBe(true)
+      const readResult = await queue.read()
+      expect(readResult.value).toBe(true)
       expect(queue.isEmpty).toBe(true)
     })
 
     test.concurrent('大量并发操作应该正确处理', async () => {
       const queue = Queue.new<number>(10)
       const results: number[] = []
+      const pushResults: { success: boolean; pushedSize: number }[] = []
 
       // 启动多个生产者
       const producers = Array.from({ length: 5 }, (_, i) =>
-        Promise.all(Array.from({ length: 10 }, (__, j) => queue.push(i * 10 + j))),
+        Promise.all(
+          Array.from({ length: 10 }, async (__, j) => {
+            const result = await queue.push(i * 10 + j)
+            pushResults.push(result)
+            return result
+          }),
+        ),
       )
 
       // 启动多个消费者
@@ -505,14 +656,56 @@ describe('Queue', () => {
 
       expect(results).toHaveLength(50)
       expect(results.sort((a, b) => a - b)).toEqual(Array.from({ length: 50 }, (_, i) => i))
+
+      // 验证所有 push 操作都成功，每次推入1个元素
+      expect(pushResults).toHaveLength(50)
+      pushResults.forEach(result => {
+        expect(result.success).toBe(true)
+        expect(result.pushedSize).toBe(1)
+      })
     })
 
-    test.concurrent('空push调用应该成功', async () => {
+    test.concurrent('空push调用应该成功且 pushedSize 为 0', async () => {
       const queue = Queue.new<number>(3)
 
       const result = await queue.push()
       expect(result.success).toBe(true)
+      expect(result.pushedSize).toBe(0)
       expect(queue.length()).toBe(0)
+    })
+
+    test.concurrent('push 部分成功的场景 - 队列在推入过程中关闭', async () => {
+      const queue = Queue.new<number>(2)
+
+      // 填满队列容量为1，推入多个元素时会被中断
+      const result1 = await queue.push(1)
+      expect(result1.success).toBe(true)
+      expect(result1.pushedSize).toBe(1)
+
+      // 开始推入多个元素，但在中间关闭队列
+      const pushPromise = queue.push(2, 3, 4)
+
+      // 稍等确保第一个元素开始等待
+      await new Promise<void>(resolve => {
+        setTimeout(resolve, 10)
+      })
+
+      // 读取一个元素，让第一个待推入元素可以进入
+      await queue.read()
+
+      // 稍等让第一个元素推入
+      await new Promise<void>(resolve => {
+        setTimeout(resolve, 10)
+      })
+
+      // 关闭队列，中断剩余推入
+      await queue.close()
+
+      const result = await pushPromise
+      expect(result.success).toBe(false)
+      // pushedSize 应该反映实际推入的数量（在关闭前成功推入的数量）
+      expect(result.pushedSize).toBeGreaterThanOrEqual(0)
+      expect(result.pushedSize).toBeLessThan(3)
     })
   })
 
@@ -528,7 +721,9 @@ describe('Queue', () => {
       const obj1: TestObject = { id: 1, name: 'test1' }
       const obj2: TestObject = { id: 2, name: 'test2' }
 
-      await queue.push(obj1, obj2)
+      const result = await queue.push(obj1, obj2)
+      expect(result.success).toBe(true)
+      expect(result.pushedSize).toBe(2)
 
       const result1 = await queue.read()
       expect(result1.success).toBe(true)
@@ -537,6 +732,59 @@ describe('Queue', () => {
       const result2 = await queue.read()
       expect(result2.success).toBe(true)
       expect(result2.value).toEqual(obj2)
+    })
+  })
+
+  describe('pushedSize 字段详细测试', () => {
+    test.concurrent('pushedSize 应该准确反映成功推入的元素数量', async () => {
+      const queue = Queue.new<number>(5)
+
+      // 推入1个元素
+      const result1 = await queue.push(1)
+      expect(result1.success).toBe(true)
+      expect(result1.pushedSize).toBe(1)
+
+      // 推入3个元素
+      const result2 = await queue.push(2, 3, 4)
+      expect(result2.success).toBe(true)
+      expect(result2.pushedSize).toBe(3)
+
+      // 推入0个元素
+      const result3 = await queue.push()
+      expect(result3.success).toBe(true)
+      expect(result3.pushedSize).toBe(0)
+
+      expect(queue.length()).toBe(4)
+    })
+
+    test.concurrent('队列关闭时 pushedSize 应该为 0', async () => {
+      const queue = Queue.new<number>(3)
+      await queue.close()
+
+      const result = await queue.push(1, 2, 3)
+      expect(result.success).toBe(false)
+      expect(result.pushedSize).toBe(0)
+    })
+
+    test.concurrent('队列重置时等待的 push 应该返回 pushedSize 为 0', async () => {
+      const queue = Queue.new<number>(1)
+
+      // 填满队列
+      await queue.push(1)
+
+      // 开始等待的推入
+      const pushPromise = queue.push(2, 3)
+
+      await new Promise<void>(resolve => {
+        setTimeout(resolve, 10)
+      })
+
+      // 重置队列
+      await queue.reset()
+
+      const result = await pushPromise
+      expect(result.success).toBe(false)
+      expect(result.pushedSize).toBe(0)
     })
   })
 })
