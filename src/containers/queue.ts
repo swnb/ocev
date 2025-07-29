@@ -34,6 +34,20 @@ class Queue<T> {
     return this.#queue.length === 0
   }
 
+  /**
+   * @description 判断队列是否已关闭
+   * @readonly
+   * @type {boolean}
+   */
+  get isClosed(): boolean {
+    return this.#closed
+  }
+
+  /**
+   * @description 创建队列
+   * @param {number} bufferSize - 队列的容量
+   * @returns {Queue<T>} 队列
+   */
   static new<T>(bufferSize: number = 0): Queue<T> {
     return new Queue(bufferSize)
   }
