@@ -16,7 +16,7 @@ import type {
   ListenerConfig,
   SyncEventOptions,
 } from './types'
-import { errors } from './index'
+import * as errors from './errors'
 import { CollectionMap } from './map'
 import { createListenerLinker } from './linkable-listener'
 import { RingBuffer } from './ring-buffer'
@@ -669,7 +669,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
         // record delayMs
         debounce.delayMs += debounce.waitMs
         debounce.expectExecTimeMs = currentTimeMs + debounce.waitMs
-        debounce.timerId = setTimeout(doItRightNow, debounce.waitMs)
+        debounce.timerId = setTimeout(doItRightNow, debounce.waitMs) as any
       }
 
       if (!debounce.delayMs || !debounce.maxWaitMs) {
@@ -698,7 +698,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
             // 延长到最大的限制点，不在推移，直接再执行
             debounce.delayMs = debounce.maxWaitMs
             debounce.expectExecTimeMs = currentTimeMs + waitMs
-            debounce.timerId = setTimeout(doItRightNow, waitMs)
+            debounce.timerId = setTimeout(doItRightNow, waitMs) as any
           } else {
             // 没有必要再推移了
             doItRightNow()
