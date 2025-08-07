@@ -1,4 +1,4 @@
-import { SyncEvent } from '../sync-event'
+import { SyncEvent } from '../../sync-event'
 
 class Queue<T> {
   #bufferSize: number = 0

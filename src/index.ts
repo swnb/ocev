@@ -10,6 +10,7 @@ export type {
   WaitUtilConfig,
   EventStreamStrategy,
   SyncEventOptions,
+  Subscriber,
 } from './types'
 
 export * as errors from './errors'

@@ -1,4 +1,4 @@
-import { Queue } from './queue'
+import { Queue } from '.'
 
 describe('Queue', () => {
   describe('构造函数和静态方法', () => {

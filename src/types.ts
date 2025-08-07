@@ -179,20 +179,7 @@ export interface ISyncEvent<M extends HandlerMap> {
       | 'createEventStream'
       | 'createEventReadableStream'
      */
-  get subscriber(): Pick<
-    this,
-    | 'on'
-    | 'once'
-    | 'off'
-    | 'offAll'
-    | 'waitUtil'
-    | 'any'
-    | 'waitUtilRace'
-    | 'waitUtilAll'
-    | 'waitUtilAny'
-    | 'createEventStream'
-    | 'createEventReadableStream'
-  >
+  get subscriber(): Subscriber<M>
 
   /**
    * Publisher only allow to call method 'emit'
@@ -228,6 +215,21 @@ export interface IAccessControlObserver<M extends HandlerMap, K extends keyof M>
 export interface IAccessControlPublisher<M extends HandlerMap, K extends keyof M> {
   emit: (type: K, ...arg: Arguments<M[K]>) => this
 }
+
+export type Subscriber<M extends HandlerMap> = Pick<
+  ISyncEvent<M>,
+  | 'on'
+  | 'once'
+  | 'off'
+  | 'offAll'
+  | 'waitUtil'
+  | 'any'
+  | 'waitUtilRace'
+  | 'waitUtilAll'
+  | 'waitUtilAny'
+  | 'createEventStream'
+  | 'createEventReadableStream'
+>
 
 export type TransformEventList2ArgumentsList<
   List extends readonly (keyof M)[],

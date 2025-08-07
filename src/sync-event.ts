@@ -15,6 +15,7 @@ import type {
   ListenerOptions,
   ListenerConfig,
   SyncEventOptions,
+  Subscriber,
 } from './types'
 import * as errors from './errors'
 import { CollectionMap } from './map'
@@ -36,20 +37,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
 
   #anyHandlerSet = new CollectionSet<(...args: any[]) => any>()
 
-  #subscriber: Pick<
-    this,
-    | 'on'
-    | 'once'
-    | 'off'
-    | 'offAll'
-    | 'any'
-    | 'waitUtil'
-    | 'waitUtilRace'
-    | 'waitUtilAll'
-    | 'waitUtilAny'
-    | 'createEventStream'
-    | 'createEventReadableStream'
-  >
+  #subscriber: Subscriber<M>
 
   #publisher: Pick<this, 'emit'>
 
