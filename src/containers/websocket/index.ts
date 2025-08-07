@@ -1,9 +1,10 @@
+import { SyncEvent } from '@/sync-event'
 import type { IConnection } from './connection'
 import { HeartbeatManager } from './heartbeat'
 import { ReconnectManager } from './reconnect'
 import { StateManager } from './state'
 
-type Options = {
+export type WebSocketClientOptions = {
   reconnectManagerOptions?: {
     baseReconnectInterval: number
   }
@@ -14,6 +15,15 @@ type Options = {
   }
 }
 
+export type EventHandlerMap = {
+  open: VoidFunction
+  close: VoidFunction
+  message: (data: string | ArrayBufferLike | Blob | ArrayBufferView) => void
+}
+
+/**
+ *
+ */
 class WebSocketClient {
   #connection: IConnection
 
@@ -23,7 +33,9 @@ class WebSocketClient {
 
   #heartbeatManager: HeartbeatManager
 
-  constructor(connection: IConnection, options: Options = {}) {
+  #ev = SyncEvent.new<EventHandlerMap>()
+
+  constructor(connection: IConnection, options: WebSocketClientOptions = {}) {
     this.#stateManager = new StateManager()
 
     this.#connection = connection
@@ -45,6 +57,7 @@ class WebSocketClient {
    * 连接
    */
   connect = async (): Promise<void> => {
+    this.#bindEvent()
     await this.#reconnectManager.setup()
   }
 
@@ -54,6 +67,20 @@ class WebSocketClient {
   disconnect = async (): Promise<void> => {
     this.#reconnectManager.destroy()
     this.#heartbeatManager.destroy()
+    this.#ev.offAll()
+  }
+
+  #bindEvent = () => {
+    this.#connection.subscriber
+      .on('open', () => {
+        this.#ev.emit('open')
+      })
+      .on('close', () => {
+        this.#ev.emit('close')
+      })
+      .on('message', data => {
+        this.#ev.emit('message', data)
+      })
   }
 }
 

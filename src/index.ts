@@ -17,4 +17,4 @@ export * as errors from './errors'
 export { SyncEvent } from './sync-event'
 export { EventProxy } from './proxy/index'
 
-export { Queue } from './containers/queue'
+export * from './containers'

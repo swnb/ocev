@@ -38,9 +38,11 @@ class ReconnectManager {
     this.#retryCount = 0
     while (!this.#isDestoryed) {
       this.#stateManager.updateState(StateManager.State.CONNECTING)
-      await this.#connection.open()
-      this.#stateManager.updateState(StateManager.State.CONNECTED)
-      await this.#connection.subscriber.waitUtilRace(['close'])
+      try {
+        await this.#connection.open()
+        this.#stateManager.updateState(StateManager.State.CONNECTED)
+        await this.#connection.subscriber.waitUtilRace(['close'])
+      } catch {}
       this.#stateManager.updateState(StateManager.State.DISCONNECTED)
       await waitForMs(this.#getReconnectionWaitTime())
       this.#retryCount += 1
@@ -59,8 +61,8 @@ class ReconnectManager {
    * 获取重连等待时间
    */
   #getReconnectionWaitTime = (): number => {
-    const jitter = Math.random() * 50000 // 0-5s;
     const base = Math.min(this.#baseReconnectInterval * 2 ** this.#retryCount, 30000)
+    const jitter = Math.random() * Math.min(1000, base * 0.1)
     return base + jitter
   }
 }

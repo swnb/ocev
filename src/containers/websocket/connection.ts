@@ -37,7 +37,10 @@ class WebSocketConnection implements IConnection {
   open = async (): Promise<void> => {
     this.close()
     this.#createWebSocket()
-    await this.#ev.waitUtil('open')
+    const reuslt = await this.#ev.waitUtilRace(['open', 'close'])
+    if (reuslt.event === 'close') {
+      throw new Error('WebSocket connection closed')
+    }
   }
 
   close = (): void => {
