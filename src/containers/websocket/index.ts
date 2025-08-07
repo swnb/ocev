@@ -54,6 +54,13 @@ class WebSocketClient {
   }
 
   /**
+   * 获取事件订阅器，用于监听WebSocket事件
+   */
+  get subscriber() {
+    return this.#ev.subscriber
+  }
+
+  /**
    * 连接
    */
   connect = async (): Promise<void> => {
