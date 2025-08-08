@@ -101,6 +101,23 @@ test.concurrent('test sync event listenerCount', () => {
   expect(eventEmitter.listenerCount('ev1')).toBe(0)
 })
 
+test('offAll should remove listener options for specific event', () => {
+  jest.useFakeTimers()
+  const eventEmitter = SyncEvent.new<EventHandlerMap>()
+  const handler = jest.fn()
+
+  eventEmitter.on('ev1', handler, { debounce: { waitMs: 50 } })
+  eventEmitter.offAll('ev1')
+
+  eventEmitter.on('ev1', handler)
+  eventEmitter.emit('ev1', '', 1)
+  eventEmitter.emit('ev1', '', 1)
+  jest.advanceTimersByTime(100)
+
+  expect(handler).toHaveBeenCalledTimes(2)
+  jest.useRealTimers()
+})
+
 test.concurrent('test sync event on and once', () => {
   const eventEmitter = SyncEvent.new<EventHandlerMap>()
   let count = 0
