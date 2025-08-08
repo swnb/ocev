@@ -185,11 +185,6 @@ export interface ISyncEvent<M extends HandlerMap> {
    * Publisher only allow to call method 'emit'
    */
   get publisher(): Pick<this, 'emit'>
-  /**
-   * Create new SyncEvent
-   * @returns {SyncEvent<M>} 新的 SyncEvent 实例
-   * @static
-   */
 }
 
 export type Arguments<T extends (...args: any) => any> = T extends (...args: infer R) => void
