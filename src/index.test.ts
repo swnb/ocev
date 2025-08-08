@@ -236,19 +236,9 @@ test.concurrent('test sync event waitUtil', async () => {
   }
 
   const error = new Error('click')
-
-  const p = divEventProxyAgent
-    .waitUtil('click', {
-      mapToError: () => error,
-      timeout: 500,
-    })
-    .catch(e => {
-      expect(error).toBe(e)
-    })
-
+  const p = divEventProxyAgent.waitUtil('click', { mapToError: () => error, timeout: 500 })
   div.click()
-
-  await p
+  await expect(p).rejects.toBe(error)
 })
 
 test.concurrent('test sync event bind for global', async () => {
