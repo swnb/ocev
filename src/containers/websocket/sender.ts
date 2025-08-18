@@ -15,7 +15,7 @@ type Options = {
  *
  * 提供可靠的消息发送功能，支持自动重试和超时处理
  */
-class Sender<Data> {
+class Sender<Data = string | ArrayBufferLike | Blob | ArrayBufferView> {
   /** WebSocket 连接实例 */
   #connection: IConnection<Data>
 

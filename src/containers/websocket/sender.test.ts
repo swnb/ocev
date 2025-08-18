@@ -8,10 +8,14 @@ import { waitForMs } from '@/helpers/time'
  */
 class MockConnectionForSender implements IConnection {
   #ev = new SyncEvent<ConnectionEvent>()
+
   #isConnected = true
+
   #shouldFailOnSend = false
+
   #ackDelay = 10
-  #sentMessages: Array<{ messageId: string; data: any }> = []
+
+  #sentMessages: { messageId: string; data: any }[] = []
 
   get subscriber() {
     return this.#ev.subscriber
@@ -442,7 +446,7 @@ describe('Sender', () => {
       const sentMessages = mockConnection.getSentMessages()
       expect(sentMessages).toHaveLength(1)
 
-      const messageId = sentMessages[0].messageId
+      const { messageId } = sentMessages[0]
 
       // 发送多个 ACK 响应
       mockConnection.simulateAck(messageId)
