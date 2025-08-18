@@ -1,32 +1,34 @@
 import type { Subscriber } from '@/types'
 import { SyncEvent } from '@/sync-event'
 
-export type ConnectionEvent = {
+export type ConnectionEvent<Data = string | ArrayBufferLike | Blob | ArrayBufferView> = {
   open: VoidFunction
   close: VoidFunction
   pong: VoidFunction
   ack: (messageId: string) => void
-  message: (data: string | ArrayBufferLike | Blob | ArrayBufferView) => void
+  message: (data: Data) => void
 }
 
-export interface IConnection {
+export interface IConnection<Data = string | ArrayBufferLike | Blob | ArrayBufferView> {
   maintain: () => Promise<void>
-  send: (messageId: string, data: string | ArrayBufferLike | Blob | ArrayBufferView) => boolean
+  send: (messageId: string, data: Data) => boolean
   close: () => void
   ping: () => void
-  subscriber: Subscriber<ConnectionEvent>
+  subscriber: Subscriber<ConnectionEvent<Data>>
 }
 
 /**
  * 连接管理器
  * 自己实现了 ping/pong 的机制，这一块需要用户自己实现  IConnection 接口
  */
-class WebSocketConnection implements IConnection {
+class WebSocketConnection<Data extends string | ArrayBufferLike | Blob | ArrayBufferView>
+  implements IConnection<Data>
+{
   #url: string
 
   #ws: WebSocket | null = null
 
-  #ev = new SyncEvent<ConnectionEvent>()
+  #ev = new SyncEvent<ConnectionEvent<Data>>()
 
   constructor(url: string) {
     this.#url = url
@@ -50,7 +52,7 @@ class WebSocketConnection implements IConnection {
     this.#ws = null
   }
 
-  send = (messageId: string, data: string | ArrayBufferLike | Blob | ArrayBufferView): boolean => {
+  send = (messageId: string, data: Data): boolean => {
     if (!this.#ws) {
       return false
     }

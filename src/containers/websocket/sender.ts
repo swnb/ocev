@@ -15,9 +15,9 @@ type Options = {
  *
  * 提供可靠的消息发送功能，支持自动重试和超时处理
  */
-class Sender {
+class Sender<Data> {
   /** WebSocket 连接实例 */
-  #connection: IConnection
+  #connection: IConnection<Data>
 
   /** 默认超时时间 */
   #timeout: number
@@ -31,7 +31,10 @@ class Sender {
    * @param connection WebSocket 连接实例
    * @param options 配置选项，包含超时时间和重试次数
    */
-  constructor(connection: IConnection, options: Options = { timeout: 3000, maxRetryCount: 3 }) {
+  constructor(
+    connection: IConnection<Data>,
+    options: Options = { timeout: 3000, maxRetryCount: 3 },
+  ) {
     this.#connection = connection
 
     this.#timeout = options.timeout
@@ -56,10 +59,7 @@ class Sender {
    * @param data 要发送的数据
    * @param timeout 超时时间（可选，默认使用实例配置）
    */
-  send = async (
-    data: string | ArrayBufferLike | Blob | ArrayBufferView,
-    timeout: number = this.#timeout,
-  ): Promise<void> => {
+  send = async (data: Data, timeout: number = this.#timeout): Promise<void> => {
     // 重试循环
     for (let i = 0; i < this.#maxRetryCount; i++) {
       try {
@@ -79,10 +79,7 @@ class Sender {
    * @param data 要发送的数据
    * @param timeout 超时时间
    */
-  #send = async (
-    data: string | ArrayBufferLike | Blob | ArrayBufferView,
-    timeout: number,
-  ): Promise<void> => {
+  #send = async (data: Data, timeout: number): Promise<void> => {
     // 生成唯一消息ID
     const messageId = Sender.createMessageId()
 

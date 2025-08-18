@@ -6,12 +6,12 @@ type Options = {
   baseReconnectInterval: number
 }
 
-class ReconnectManager {
+class ReconnectManager<Data> {
   static defaultOptions: Options = {
     baseReconnectInterval: 1000,
   }
 
-  #connection: IConnection
+  #connection: IConnection<Data>
 
   #stateManager: StateManager
 
@@ -22,7 +22,7 @@ class ReconnectManager {
   #retryCount = 0
 
   constructor(
-    connection: IConnection,
+    connection: IConnection<Data>,
     stateManager: StateManager,
     options: Options = ReconnectManager.defaultOptions,
   ) {
