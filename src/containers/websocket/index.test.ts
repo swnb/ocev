@@ -36,6 +36,10 @@ class MockConnection implements IConnection {
     return this.#isOpen
   }
 
+  send() {
+    return true
+  }
+
   async maintain(): Promise<void> {
     if (this.#openDelay > 0) {
       await waitForMs(this.#openDelay)
@@ -141,7 +145,7 @@ describe('WebSocketClient', () => {
       client.subscriber.on('open', openSpy)
 
       // connect()会启动重连循环，不会立即返回
-      client.connect()
+      client.maintain()
 
       // 等待连接事件传播
       await waitForMs(100)
@@ -156,7 +160,7 @@ describe('WebSocketClient', () => {
     test('连接失败时应该重试', async () => {
       mockConnection.setShouldFailOnOpen(true)
 
-      client.connect()
+      client.maintain()
 
       // 等待第一次连接失败
       await waitForMs(50)
@@ -177,7 +181,7 @@ describe('WebSocketClient', () => {
       mockConnection.setOpenDelay(100)
 
       const startTime = Date.now()
-      client.connect()
+      client.maintain()
 
       // 等待连接完成
       await waitForMs(200)
@@ -196,7 +200,7 @@ describe('WebSocketClient', () => {
     })
 
     test('应该能够正常断开连接', async () => {
-      client.connect()
+      client.maintain()
 
       // 等待连接建立
       await waitForMs(100)
@@ -212,7 +216,7 @@ describe('WebSocketClient', () => {
     })
 
     test('多次断开连接应该安全', async () => {
-      client.connect()
+      client.maintain()
 
       // 等待连接建立
       await waitForMs(100)
@@ -233,7 +237,7 @@ describe('WebSocketClient', () => {
       const openSpy = jest.fn()
       client.subscriber.on('open', openSpy)
 
-      client.connect()
+      client.maintain()
 
       await waitForMs(100)
 
@@ -246,7 +250,7 @@ describe('WebSocketClient', () => {
       const closeSpy = jest.fn()
       client.subscriber.on('close', closeSpy)
 
-      client.connect()
+      client.maintain()
 
       await waitForMs(100)
 
@@ -262,7 +266,7 @@ describe('WebSocketClient', () => {
       const messageSpy = jest.fn()
       client.subscriber.on('message', messageSpy)
 
-      client.connect()
+      client.maintain()
 
       await waitForMs(100)
 
@@ -279,7 +283,7 @@ describe('WebSocketClient', () => {
       const messageSpy = jest.fn()
       client.subscriber.on('message', messageSpy)
 
-      client.connect()
+      client.maintain()
 
       await waitForMs(100)
 
@@ -320,7 +324,7 @@ describe('WebSocketClient', () => {
       client.subscriber.on('open', openSpy)
       client.subscriber.on('close', closeSpy)
 
-      client.connect()
+      client.maintain()
 
       await waitForMs(100)
 
@@ -342,7 +346,7 @@ describe('WebSocketClient', () => {
     })
 
     test('disconnect后应该停止重连', async () => {
-      client.connect()
+      client.maintain()
 
       await waitForMs(100)
 
@@ -374,7 +378,7 @@ describe('WebSocketClient', () => {
     test('连接后应该开始发送心跳', async () => {
       const pingSpy = jest.spyOn(mockConnection, 'ping')
 
-      client.connect()
+      client.maintain()
       await waitForMs(100)
 
       // 等待心跳启动
@@ -386,7 +390,7 @@ describe('WebSocketClient', () => {
     })
 
     test('应该能够处理pong响应', async () => {
-      client.connect()
+      client.maintain()
 
       await waitForMs(100)
 
@@ -405,7 +409,7 @@ describe('WebSocketClient', () => {
       // 在实际项目中可能需要更精细的控制
       const closeSpy = jest.spyOn(mockConnection, 'close')
 
-      await client.connect()
+      await client.maintain()
       await waitForMs(50)
 
       // 不响应pong，等待心跳超时
@@ -424,7 +428,7 @@ describe('WebSocketClient', () => {
       mockConnection.setShouldFailOnOpen(true)
 
       // 连接应该开始但会失败并重试
-      client.connect()
+      client.maintain()
 
       // 等待连接失败
       await waitForMs(100)
@@ -439,8 +443,8 @@ describe('WebSocketClient', () => {
 
     test('应该能够处理多次连接调用', async () => {
       // 多次调用connect应该安全
-      client.connect()
-      client.connect()
+      client.maintain()
+      client.maintain()
 
       // 等待连接建立
       await waitForMs(100)
@@ -495,9 +499,9 @@ describe('WebSocketClient', () => {
 
     test('应该能够处理并发的连接和断开', async () => {
       // 并发连接
-      client.connect()
-      client.connect()
-      client.connect()
+      client.maintain()
+      client.maintain()
+      client.maintain()
 
       // 等待连接建立
       await waitForMs(100)
@@ -512,7 +516,7 @@ describe('WebSocketClient', () => {
 
     test('应该能够处理连接-断开循环', async () => {
       // 测试基本的连接-断开功能
-      client.connect()
+      client.maintain()
       await waitForMs(200)
       expect(mockConnection.isConnected()).toBe(true)
 
@@ -521,7 +525,7 @@ describe('WebSocketClient', () => {
       expect(mockConnection.isConnected()).toBe(false)
 
       // 验证可以重新建立连接（简化版本）
-      client.connect()
+      client.maintain()
       await waitForMs(200)
 
       // 只验证客户端实例仍然有效，不强制要求连接状态
@@ -544,7 +548,7 @@ describe('WebSocketClient', () => {
       client.subscriber.on('close', closeSpy)
       client.subscriber.on('message', messageSpy)
 
-      client.connect()
+      client.maintain()
 
       await waitForMs(100)
 
@@ -584,7 +588,7 @@ describe('WebSocketClient', () => {
       mockConnection.setOpenDelay(300)
 
       // 开始连接
-      client.connect()
+      client.maintain()
 
       // 在连接完成前断开
       setTimeout(() => {
