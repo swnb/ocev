@@ -5,12 +5,14 @@ export type ConnectionEvent = {
   open: VoidFunction
   close: VoidFunction
   pong: VoidFunction
+  ack: (messageId: string) => void
   message: (data: string | ArrayBufferLike | Blob | ArrayBufferView) => void
 }
 
 export interface IConnection {
+  maintain: () => Promise<void>
+  send: (messageId: string, data: string | ArrayBufferLike | Blob | ArrayBufferView) => boolean
   close: () => void
-  open: () => Promise<void>
   ping: () => void
   subscriber: Subscriber<ConnectionEvent>
 }
@@ -34,7 +36,7 @@ class WebSocketConnection implements IConnection {
     return this.#ev.subscriber
   }
 
-  open = async (): Promise<void> => {
+  maintain = async (): Promise<void> => {
     this.close()
     this.#createWebSocket()
     const reuslt = await this.#ev.waitUtilRace(['open', 'close'])
@@ -48,7 +50,7 @@ class WebSocketConnection implements IConnection {
     this.#ws = null
   }
 
-  send = (data: string | ArrayBufferLike | Blob | ArrayBufferView): boolean => {
+  send = (messageId: string, data: string | ArrayBufferLike | Blob | ArrayBufferView): boolean => {
     if (!this.#ws) {
       return false
     }

@@ -39,7 +39,7 @@ class ReconnectManager {
     while (!this.#isDestoryed) {
       this.#stateManager.updateState(StateManager.State.CONNECTING)
       try {
-        await this.#connection.open()
+        await this.#connection.maintain()
         this.#stateManager.updateState(StateManager.State.CONNECTED)
         await this.#connection.subscriber.waitUtilRace(['close'])
       } catch {}

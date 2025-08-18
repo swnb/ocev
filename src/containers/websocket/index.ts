@@ -3,6 +3,7 @@ import type { IConnection } from './connection'
 import { HeartbeatManager } from './heartbeat'
 import { ReconnectManager } from './reconnect'
 import { StateManager } from './state'
+import { Sender } from './sender'
 
 export type WebSocketClientOptions = {
   reconnectManagerOptions?: {
@@ -33,6 +34,8 @@ class WebSocketClient {
 
   #heartbeatManager: HeartbeatManager
 
+  #sender: Sender
+
   #ev = SyncEvent.new<EventHandlerMap>()
 
   constructor(connection: IConnection, options: WebSocketClientOptions = {}) {
@@ -51,6 +54,8 @@ class WebSocketClient {
       this.#stateManager,
       options.heartbeatManagerOptions,
     )
+
+    this.#sender = new Sender(this.#connection)
   }
 
   /**
@@ -58,6 +63,10 @@ class WebSocketClient {
    */
   get subscriber() {
     return this.#ev.subscriber
+  }
+
+  send = async (data: string | ArrayBufferLike | Blob | ArrayBufferView) => {
+    await this.#sender.send(data)
   }
 
   /**
