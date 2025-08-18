@@ -7,14 +7,14 @@ type Options = {
   checkHeartbeatInterval: number
 }
 
-class HeartbeatManager {
+class HeartbeatManager<Data> {
   static defaultOptions: Options = {
     clientHeartbeatInterval: 15 * 1000,
     serverMaxHeartbeatResponseTime: 30 * 1000,
     checkHeartbeatInterval: 15 * 1000,
   }
 
-  #connection: IConnection
+  #connection: IConnection<Data>
 
   #stateManager: StateManager
 
@@ -33,7 +33,7 @@ class HeartbeatManager {
   #lastPongTime: number = 0
 
   constructor(
-    connection: IConnection,
+    connection: IConnection<Data>,
     stateManager: StateManager,
     options: Options = HeartbeatManager.defaultOptions,
   ) {

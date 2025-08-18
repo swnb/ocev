@@ -16,29 +16,29 @@ export type WebSocketClientOptions = {
   }
 }
 
-export type EventHandlerMap = {
+export type EventHandlerMap<Data> = {
   open: VoidFunction
   close: VoidFunction
-  message: (data: string | ArrayBufferLike | Blob | ArrayBufferView) => void
+  message: (data: Data) => void
 }
 
 /**
  *
  */
-class WebSocketClient {
-  #connection: IConnection
+class WebSocketClient<Data = string | ArrayBufferLike | Blob | ArrayBufferView> {
+  #connection: IConnection<Data>
 
-  #reconnectManager: ReconnectManager
+  #reconnectManager: ReconnectManager<Data>
 
   #stateManager: StateManager
 
-  #heartbeatManager: HeartbeatManager
+  #heartbeatManager: HeartbeatManager<Data>
 
-  #sender: Sender
+  #sender: Sender<Data>
 
-  #ev = SyncEvent.new<EventHandlerMap>()
+  #ev = SyncEvent.new<EventHandlerMap<Data>>()
 
-  constructor(connection: IConnection, options: WebSocketClientOptions = {}) {
+  constructor(connection: IConnection<Data>, options: WebSocketClientOptions = {}) {
     this.#stateManager = new StateManager()
 
     this.#connection = connection
@@ -65,7 +65,7 @@ class WebSocketClient {
     return this.#ev.subscriber
   }
 
-  send = async (data: string | ArrayBufferLike | Blob | ArrayBufferView) => {
+  send = async (data: Data) => {
     await this.#sender.send(data)
   }
 
