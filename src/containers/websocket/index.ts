@@ -72,7 +72,7 @@ class WebSocketClient {
   /**
    * 连接
    */
-  connect = async (): Promise<void> => {
+  maintain = async (): Promise<void> => {
     this.#bindEvent()
     await this.#reconnectManager.setup()
   }
