@@ -10,7 +10,7 @@ export type ConnectionEvent<Data = string | ArrayBufferLike | Blob | ArrayBuffer
 }
 
 export interface IConnection<Data = string | ArrayBufferLike | Blob | ArrayBufferView> {
-  maintain: () => Promise<void>
+  open: () => Promise<void>
   send: (messageId: string, data: Data) => boolean
   close: () => void
   ping: () => void
@@ -38,7 +38,7 @@ class WebSocketConnection<Data extends string | ArrayBufferLike | Blob | ArrayBu
     return this.#ev.subscriber
   }
 
-  maintain = async (): Promise<void> => {
+  open = async (): Promise<void> => {
     this.close()
     this.#createWebSocket()
     const reuslt = await this.#ev.waitUtilRace(['open', 'close'])

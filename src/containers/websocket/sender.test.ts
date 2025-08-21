@@ -59,7 +59,7 @@ class MockConnectionForSender implements IConnection {
   /**
    * 模拟 maintain 方法
    */
-  async maintain(): Promise<void> {
+  async open(): Promise<void> {
     this.#isConnected = true
     this.#ev.emit('open')
   }

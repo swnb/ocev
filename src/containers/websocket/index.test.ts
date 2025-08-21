@@ -40,7 +40,7 @@ class MockConnection implements IConnection {
     return true
   }
 
-  async maintain(): Promise<void> {
+  async open(): Promise<void> {
     if (this.#openDelay > 0) {
       await waitForMs(this.#openDelay)
     }
