@@ -212,13 +212,25 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
    */
   public offAll = <K extends keyof M>(event?: K): this => {
     if (event) {
-      // FIXME memory leak
-      this.#listenerCount -= this.#handlerMap.delete(event)?.size ?? 0
-      this.#handlerMap.set(event, new CollectionSet())
+      const handlers = this.#handlerMap.delete(event)
+      if (handlers) {
+        this.#listenerCount -= handlers.size
+
+        handlers.forEach(handler => {
+          this.#listenerConfigMap.delete(handler)
+        })
+
+        this.#onceHandlerWrapperMap.forEach((wrapper, origin) => {
+          if (wrapper.type === event) {
+            this.#onceHandlerWrapperMap.delete(origin)
+          }
+        })
+      }
     } else {
       this.#handlerMap.clear()
       this.#onceHandlerWrapperMap.clear()
       this.#anyHandlerSet.clear()
+      this.#listenerConfigMap.clear()
       this.#listenerCount = 0
     }
 
@@ -239,6 +251,7 @@ export class SyncEvent<M extends HandlerMap> implements ISyncEvent<M> {
       const successDeleted = handlers.delete(handler)
       if (successDeleted) {
         this.#listenerCount -= 1
+        this.#listenerConfigMap.delete(handler)
       }
     }
 
