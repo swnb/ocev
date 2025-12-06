@@ -41,11 +41,9 @@
     "prettier": "^2.8.8",
     "ts-jest": "^29.1.1",
     "tsc-alias": "^1.8.6",
+    "typescript": "^5.1.3",
     "undici": "^6.6.2",
     "web-streams-polyfill": "^3.3.3"
-  },
-  "dependencies": {
-    "typescript": "^5.1.3"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org"
